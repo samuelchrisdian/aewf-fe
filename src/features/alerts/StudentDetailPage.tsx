@@ -1,6 +1,7 @@
 import React, { useContext } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { StudentContext } from './context/StudentProvider';
+import { StudentDetail } from './models';
 import { Chart as ChartJS, CategoryScale, LinearScale, PointElement, LineElement, Title, Tooltip, Legend } from 'chart.js';
 import { Line } from 'react-chartjs-2';
 import { AlertOctagon, CheckCircle, ArrowLeft } from 'lucide-react';
@@ -9,16 +10,21 @@ ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, Title, T
 
 const StudentDetailPage = (): React.ReactElement => {
   const navigate = useNavigate();
-  const studentCtx = useContext(StudentContext as any);
-  const { data: student = null, isLoading: loading = false } = studentCtx || {};
+  const student = useContext(StudentContext);
 
-  if (loading) return <div className="p-10 text-center">Loading student profile...</div>;
   if (!student) return <div className="p-10 text-center">Student not found.</div>;
 
-  const weeklyTrend = Array.isArray(student.weeklyTrend) ? student.weeklyTrend : [];
-  const triggeredRules = Array.isArray(student.triggeredRules) ? student.triggeredRules : [];
-  const recommendations = Array.isArray(student.recommendations) ? student.recommendations : [];
-  const attendanceStats = student.attendanceStats || { present: 0, absent: 0 };
+  // Type guard for extended student details
+  const isDetail = (s: unknown): s is StudentDetail => {
+    if (!s || typeof s !== 'object') return false;
+    const o = s as Record<string, unknown>;
+    return (Array.isArray(o.weeklyTrend) || Array.isArray(o.triggeredRules) || Array.isArray(o.recommendations) || !!o.attendanceStats);
+  };
+
+  const weeklyTrend = isDetail(student) && Array.isArray(student.weeklyTrend) ? student.weeklyTrend : [];
+  const triggeredRules = isDetail(student) && Array.isArray(student.triggeredRules) ? student.triggeredRules : [];
+  const recommendations = isDetail(student) && Array.isArray(student.recommendations) ? student.recommendations : [];
+  const attendanceStats = isDetail(student) && student.attendanceStats ? student.attendanceStats : { present: 0, absent: 0 };
 
   const trendData = {
     labels: ['Week 1', 'Week 2', 'Week 3', 'Week 4'],
