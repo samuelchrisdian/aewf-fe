@@ -22,6 +22,13 @@ export interface Student {
     probability: number;
 }
 
+export interface StudentDetail extends Student {
+    attendanceStats?: { present: number; absent: number; late?: number; excuse?: number };
+    triggeredRules?: string[];
+    weeklyTrend?: number[];
+    recommendations?: string[];
+}
+
 export function mapAlertToStudentModel(raw: RawAlert): Student {
     return {
         id: raw.id,
