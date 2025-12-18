@@ -9,7 +9,13 @@ interface ProtectedRouteProps {
 export function ProtectedRoute({ children }: ProtectedRouteProps): React.ReactElement {
   const { isAuthenticated, isLoading } = useAuth();
 
-  if (isLoading) {
+  // Check if token exists in localStorage (session restore in progress)
+  const hasToken = !!localStorage.getItem('access_token');
+
+  // Show loading while:
+  // 1. Auth is loading, OR
+  // 2. Token exists but not yet authenticated (session restoring)
+  if (isLoading || (hasToken && !isAuthenticated)) {
     return (
       <div className="flex h-screen items-center justify-center">
         <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>

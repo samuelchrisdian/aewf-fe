@@ -1,6 +1,6 @@
 import React, { createContext, useReducer, useEffect, useCallback, ReactNode } from 'react';
 import { User, AuthState, LoginRequest } from '../models';
-import { login as apiLogin, logout as apiLogout, getCurrentUser, refreshToken } from '../../../services/api';
+import { useLogin as useLoginMutation, useLogout as useLogoutMutation, useCurrentUser } from '../api';
 
 export interface AuthContextType extends AuthState {
   login: (credentials: LoginRequest) => Promise<void>;
@@ -71,42 +71,56 @@ function authReducer(state: AuthState, action: AuthAction): AuthState {
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [state, dispatch] = useReducer(authReducer, initialState);
 
-  // Restore session on mount
+  // React Query hooks
+  const loginMutation = useLoginMutation();
+  const logoutMutation = useLogoutMutation();
+  const { data: currentUser } = useCurrentUser();
+
+  // Restore session on mount from localStorage
   useEffect(() => {
-    const restoreSession = async () => {
-      try {
-        const user = await getCurrentUser();
-        const token = localStorage.getItem('auth_token');
-        if (user && token) {
-          dispatch({ type: 'RESTORE_SESSION', payload: { user, token } });
+    const restoreSession = () => {
+      const token = localStorage.getItem('access_token');
+      const userStr = localStorage.getItem('user');
+
+      if (token && userStr) {
+        try {
+          const user = JSON.parse(userStr);
+          dispatch({
+            type: 'RESTORE_SESSION',
+            payload: { user, token }
+          });
+        } catch (error) {
+          console.error('Failed to restore session:', error);
+          localStorage.removeItem('access_token');
+          localStorage.removeItem('refresh_token');
+          localStorage.removeItem('user');
         }
-      } catch (err) {
-        // Not authenticated
-        localStorage.removeItem('auth_token');
-        localStorage.removeItem('user');
       }
     };
 
     restoreSession();
-  }, []);
+  }, []); // Run once on mount
+
+  // Update user from API if available
+  useEffect(() => {
+    if (currentUser && state.isAuthenticated) {
+      dispatch({ type: 'SET_USER', payload: currentUser as User });
+    }
+  }, [currentUser, state.isAuthenticated]);
 
   const login = useCallback(async (credentials: LoginRequest) => {
     dispatch({ type: 'LOGIN_START' });
     try {
-      const response = await apiLogin(credentials);
-      // Persist session (apiLogin mock already sets localStorage, but ensure consistency)
-      try {
-        localStorage.setItem('auth_token', response.token);
-        localStorage.setItem('user', JSON.stringify(response.user));
-      } catch (e) {
-        // ignore storage errors
-      }
+      const response = await loginMutation.mutateAsync({
+        username: credentials.email, // Map email to username
+        password: credentials.password
+      });
 
       dispatch({
         type: 'LOGIN_SUCCESS',
         payload: {
-          user: response.user,
-          token: response.token,
+          user: response.user as User,
+          token: response.access_token,
         },
       });
     } catch (err) {
@@ -114,12 +128,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       dispatch({ type: 'LOGIN_ERROR', payload: errorMessage });
       throw err;
     }
-  }, []);
+  }, [loginMutation]);
 
   const logout = useCallback(async () => {
-    await apiLogout();
+    try {
+      await logoutMutation.mutateAsync(undefined as any);
+    } catch (err: unknown) {
+      console.error('Logout error:', err);
+    }
+
+    // Clear localStorage
+    localStorage.removeItem('access_token');
+    localStorage.removeItem('refresh_token');
+    localStorage.removeItem('user');
+
     dispatch({ type: 'LOGOUT' });
-  }, []);
+  }, [logoutMutation]);
 
   const clearError = useCallback(() => {
     dispatch({ type: 'CLEAR_ERROR' });

@@ -1,14 +1,15 @@
 import { useQuery } from '@tanstack/react-query';
-import { getAlertsList } from '../../../services/api';
+import { apiClient } from '@/lib/api-client';
+import type { Alert, AlertsParams } from '@/types/api';
 
 export const ALERTS_QUERY_KEY = ['alerts'] as const;
 
-export function useAlertsQuery(teacherId: string) {
+export function useAlertsQuery(params?: AlertsParams) {
     return useQuery({
-        queryKey: ALERTS_QUERY_KEY,
+        queryKey: [...ALERTS_QUERY_KEY, params],
         queryFn: async () => {
-            const resp = await getAlertsList(teacherId);
-            return resp.data;
+            return apiClient.get<Alert[]>('/api/v1/risk/alerts', { params });
         },
+        staleTime: 1000 * 60 * 1, // 1 minute
     });
 }
