@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Outlet, Link, useLocation, useNavigate } from 'react-router-dom';
-import { LayoutDashboard, AlertTriangle, Menu, X, GraduationCap, LogOut, User } from 'lucide-react';
+import { LayoutDashboard, AlertTriangle, Menu, X, GraduationCap, LogOut, User, Users, Calendar, BarChart3, BookOpen, Server } from 'lucide-react';
 import { useAuth } from '../features/auth/hooks';
 
 const Layout = (): React.ReactElement => {
@@ -13,6 +13,11 @@ const Layout = (): React.ReactElement => {
     const navigation = [
         { name: 'Overview', href: '/', icon: LayoutDashboard },
         { name: 'Alerts', href: '/alerts', icon: AlertTriangle },
+        { name: 'Students', href: '/students', icon: Users },
+        { name: 'Attendance', href: '/attendance', icon: Calendar },
+        { name: 'Analytics', href: '/analytics', icon: BarChart3 },
+        { name: 'Classes', href: '/classes', icon: BookOpen },
+        { name: 'Machines', href: '/machines', icon: Server },
     ];
 
     const handleLogout = async () => {

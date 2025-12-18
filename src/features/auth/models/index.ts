@@ -3,10 +3,11 @@ export interface User {
   email: string;
   name: string;
   role: 'teacher' | 'admin';
+  username?: string;
 }
 
 export interface LoginRequest {
-  email: string;
+  email: string; // Will be mapped to username in AuthProvider
   password: string;
 }
 

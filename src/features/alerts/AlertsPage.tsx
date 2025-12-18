@@ -1,24 +1,21 @@
-import React, { useMemo, useContext, useCallback } from 'react';
+import React, { useMemo, useCallback, useState } from 'react';
 import { Eye, CheckCircle } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import DataTable from '../../components/DataTable';
-import { AlertsContext, AlertsContextType } from './context/AlertsProvider';
+import { useRiskListQuery, useAlertAction } from './queries';
 
 const AlertsPage = (): React.ReactElement => {
-    const alertsCtx = useContext(AlertsContext as React.Context<AlertsContextType | null>);
-    
-    const {
-        data: students = [],
-        isLoading: loading = false,
-        filter,
-        setFilter,
-        search,
-        setSearch,
-    } = alertsCtx || {};
+    const [filter, setFilter] = useState<'ALL' | 'HIGH' | 'MEDIUM' | 'LOW'>('ALL');
+    const [search, setSearch] = useState('');
+
+    const { data: students = [], isLoading: loading } = useRiskListQuery({
+        level: filter !== 'ALL' ? filter.toLowerCase() as any : undefined,
+    });
 
     const getRiskColor = useCallback((level: string) => {
-        if (level === 'HIGH') return 'bg-red-100 text-red-700 border-red-200';
-        if (level === 'MEDIUM') return 'bg-yellow-100 text-yellow-700 border-yellow-200';
+        const normalized = level?.toUpperCase();
+        if (normalized === 'CRITICAL' || normalized === 'HIGH') return 'bg-red-100 text-red-700 border-red-200';
+        if (normalized === 'MEDIUM') return 'bg-yellow-100 text-yellow-700 border-yellow-200';
         return 'bg-green-100 text-green-700 border-green-200';
     }, []);
 
@@ -35,36 +32,40 @@ const AlertsPage = (): React.ReactElement => {
                         </div>
                         <div className="ml-4">
                             <div className="text-sm font-medium text-gray-900">{student.name}</div>
-                            <div className="text-xs text-gray-500">NIS: {student.nis} • {student.class}</div>
+                            <div className="text-xs text-gray-500">NIS: {student.nis} • {student.class_name || 'N/A'}</div>
                         </div>
                     </div>
                 );
             },
         },
         {
-            accessorKey: 'riskLevel',
+            accessorKey: 'risk_level',
             header: 'Risk Level',
             cell: ({ getValue }) => (
                 <span className={`px-2.5 py-0.5 rounded-full text-xs font-medium border ${getRiskColor(getValue())}`}>
-                    {getValue()}
+                    {String(getValue()).toUpperCase()}
                 </span>
             ),
             enableSorting: false,
         },
         {
-            accessorKey: 'probability',
-            header: 'Probability',
-            cell: ({ getValue }) => (
-                <div className="flex items-center">
-                    <div className="w-24 bg-gray-200 rounded-full h-2 mr-2">
-                        <div
-                            className={`h-2 rounded-full ${getValue() > 0.7 ? 'bg-red-500' : 'bg-yellow-500'}`}
-                            style={{ width: `${getValue() * 100}%` }}
-                        />
+            accessorKey: 'risk_score',
+            header: 'Risk Score',
+            cell: ({ getValue }) => {
+                const score = getValue() as number;
+                const percentage = Math.min(score * 100, 100);
+                return (
+                    <div className="flex items-center">
+                        <div className="w-24 bg-gray-200 rounded-full h-2 mr-2">
+                            <div
+                                className={`h-2 rounded-full ${score > 0.7 ? 'bg-red-500' : score > 0.4 ? 'bg-yellow-500' : 'bg-green-500'}`}
+                                style={{ width: `${percentage}%` }}
+                            />
+                        </div>
+                        <span>{percentage.toFixed(0)}%</span>
                     </div>
-                    <span>{(getValue() * 100).toFixed(0)}%</span>
-                </div>
-            ),
+                );
+            },
         },
         {
             id: 'actions',

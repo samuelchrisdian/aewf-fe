@@ -1,12 +1,12 @@
 import React, { useState, useCallback, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Lock, Mail, AlertCircle, Loader, Eye, EyeOff, GraduationCap, BookOpen, Users, Shield } from 'lucide-react';
+import { Lock, User, AlertCircle, Loader, Eye, EyeOff, GraduationCap, BookOpen, Users, Shield } from 'lucide-react';
 import { useAuth } from './hooks';
 
 const LoginPage = (): React.ReactElement => {
   const navigate = useNavigate();
   const { login: authLogin, isAuthenticated } = useAuth();
-  const [email, setEmail] = useState('');
+  const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [validationError, setValidationError] = useState('');
@@ -30,19 +30,19 @@ const LoginPage = (): React.ReactElement => {
       setError('');
 
       // Validation
-      if (!email || !password) {
-        setValidationError('Email dan password harus diisi');
+      if (!username || !password) {
+        setValidationError('Username dan password harus diisi');
         return;
       }
 
-      if (!email.includes('@')) {
-        setValidationError('Masukkan email yang valid');
+      if (username.length < 3) {
+        setValidationError('Username minimal 3 karakter');
         return;
       }
 
       try {
         setIsLoading(true);
-        await authLogin({ email, password });
+        await authLogin({ email: username, password }); // AuthProvider will map email to username
         navigate('/', { replace: true });
       } catch (err) {
         const errorMessage = err instanceof Error ? err.message : 'Login gagal';
@@ -51,15 +51,15 @@ const LoginPage = (): React.ReactElement => {
         setIsLoading(false);
       }
     },
-    [email, password, navigate]
+    [username, password, navigate, authLogin]
   );
 
   const fillDemoCredentials = useCallback((type: 'teacher' | 'admin') => {
     if (type === 'teacher') {
-      setEmail('teacher1@school.com');
+      setUsername('teacher1');
       setPassword('password123');
     } else {
-      setEmail('admin@school.com');
+      setUsername('admin');
       setPassword('admin123');
     }
   }, []);
@@ -163,27 +163,28 @@ const LoginPage = (): React.ReactElement => {
               <p className="text-gray-600 text-lg">Silakan masuk ke akun Anda untuk melanjutkan</p>
             </div>
 
-            {/* Email Field */}
+            {/* Username Field */}
             <div className="space-y-6">
               <div>
-                <label htmlFor="email" className="block text-sm font-semibold text-gray-700 mb-2">
-                  Alamat Email
+                <label htmlFor="username" className="block text-sm font-semibold text-gray-700 mb-2">
+                  Username
                 </label>
                 <div className="relative">
-                  <Mail className="absolute left-4 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
+                  <User className="absolute left-4 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
                   <input
-                    id="email"
-                    type="email"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
+                    id="username"
+                    type="text"
+                    value={username}
+                    onChange={(e) => setUsername(e.target.value)}
                     onKeyDown={(e) => {
                       if (e.key === 'Enter') {
                         handleSubmit();
                       }
                     }}
-                    placeholder="nama@sekolah.com"
+                    placeholder="Masukkan username"
                     className="w-full pl-12 pr-4 py-3.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all bg-white text-base"
                     disabled={isLoading}
+                    autoComplete="username"
                   />
                 </div>
               </div>
@@ -258,8 +259,8 @@ const LoginPage = (): React.ReactElement => {
                     disabled={isLoading}
                   >
                     <p className="text-sm font-semibold text-blue-900 mb-2">👨‍🏫 Guru</p>
-                    <p className="text-xs text-blue-700 mb-1">teacher1@school.com</p>
-                    <p className="text-xs text-blue-600">password123</p>
+                    <p className="text-xs text-blue-700 mb-1">Username: teacher1</p>
+                    <p className="text-xs text-blue-600">Password: password123</p>
                   </button>
                   <button
                     type="button"
@@ -268,8 +269,8 @@ const LoginPage = (): React.ReactElement => {
                     disabled={isLoading}
                   >
                     <p className="text-sm font-semibold text-gray-900 mb-2">👤 Admin</p>
-                    <p className="text-xs text-gray-700 mb-1">admin@school.com</p>
-                    <p className="text-xs text-gray-600">admin123</p>
+                    <p className="text-xs text-gray-700 mb-1">Username: admin</p>
+                    <p className="text-xs text-gray-600">Password: admin123</p>
                   </button>
                 </div>
               </div>
