@@ -56,7 +56,7 @@ export interface DashboardStats {
 export interface Student {
   nis: string;
   name: string;
-  class_id: number;
+  class_id: string; // Changed from number to string (e.g., "CLASS_9A")
   class_name?: string;
   parent_phone?: string;
   email?: string;
@@ -68,7 +68,7 @@ export interface Student {
 export interface StudentsListParams {
   page?: number;
   per_page?: number;
-  class_id?: number;
+  class_id?: string; // Changed from number to string
   search?: string;
   sort_by?: string;
 }
@@ -112,13 +112,14 @@ export interface AttendanceRecord {
 
 export interface DailyAttendanceParams {
   date?: string;
-  class_id?: number;
+  month?: string; // Format: YYYY-MM
+  class_id?: string; // Changed from number to string
   status?: 'present' | 'absent' | 'late' | 'excused';
 }
 
 export interface AttendanceSummaryParams {
   period?: 'today' | 'week' | 'month';
-  class_id?: number;
+  class_id?: string; // Changed from number to string
 }
 
 export interface AttendanceSummary {

@@ -1,12 +1,14 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { useStudentsQuery, useDeleteStudent, useCreateStudent } from './queries';
+import { useClassesQuery } from '../classes/queries';
 import { Search, Plus, Edit2, Trash2, Eye, X } from 'lucide-react';
+import type { StudentsListParams } from '@/types/api';
 
 export const StudentsPage = (): React.ReactElement => {
   const [page, setPage] = useState(1);
   const [search, setSearch] = useState('');
-  const [classFilter, setClassFilter] = useState<number | undefined>();
+  const [classFilter, setClassFilter] = useState<string | undefined>();
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [formData, setFormData] = useState({
     nis: '',
@@ -15,12 +17,51 @@ export const StudentsPage = (): React.ReactElement => {
     parent_phone: '',
   });
 
-  const { data, isLoading, error } = useStudentsQuery({
+  const queryParams: StudentsListParams = {
     page,
     per_page: 20,
     search,
-    class_id: classFilter
-  });
+    ...(classFilter && { class_id: classFilter })
+  };
+
+  const { data, isLoading, error } = useStudentsQuery(queryParams);
+
+  const { data: classesData, isLoading: classesLoading, error: classesError } = useClassesQuery();
+
+  // Get unique classes from students data or use classes API
+  const uniqueClasses = useMemo(() => {
+    // Try to get classes from API first
+    if (classesData && !classesLoading) {
+      const classes = Array.isArray(classesData)
+        ? classesData
+        : (classesData?.data && Array.isArray(classesData.data))
+        ? classesData.data
+        : [];
+
+      // Map to expected format: { id, name }
+      return classes.map((cls: any) => ({
+        id: cls.class_id,
+        name: cls.class_name,
+      }));
+    }
+
+    // Fallback: Extract unique classes from students list
+    if (!data?.students) {
+      return [];
+    }
+
+    const classMap = new Map();
+    data.students.forEach(student => {
+      if (student.class_id && student.class_name) {
+        classMap.set(student.class_id, student.class_name);
+      }
+    });
+
+    return Array.from(classMap.entries()).map(([id, name]) => ({
+      id,
+      name,
+    }));
+  }, [data?.students, classesData, classesLoading]);
 
   const deleteStudent = useDeleteStudent();
   const createStudent = useCreateStudent();
@@ -112,13 +153,15 @@ export const StudentsPage = (): React.ReactElement => {
           </div>
           <select
             value={classFilter || ''}
-            onChange={(e) => setClassFilter(e.target.value ? Number(e.target.value) : undefined)}
+            onChange={(e) => setClassFilter(e.target.value || undefined)}
             className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
           >
             <option value="">All Classes</option>
-            <option value="1">10-A</option>
-            <option value="2">10-B</option>
-            <option value="3">11-A</option>
+            {uniqueClasses.map((cls) => (
+              <option key={cls.id} value={cls.id}>
+                {cls.name}
+              </option>
+            ))}
           </select>
         </div>
       </div>

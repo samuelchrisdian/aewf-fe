@@ -4,6 +4,7 @@ import { useStudentQuery, useRiskHistoryQuery } from './queries';
 import { Chart as ChartJS, CategoryScale, LinearScale, PointElement, LineElement, Title, Tooltip, Legend } from 'chart.js';
 import { Line } from 'react-chartjs-2';
 import { AlertOctagon, CheckCircle, ArrowLeft } from 'lucide-react';
+import HeatmapChart from '../../components/HeatmapChart';
 
 ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, Title, Tooltip, Legend);
 
@@ -40,7 +41,7 @@ const StudentDetailPage = (): React.ReactElement => {
         tension: 0.4,
       },
     ],
-  };
+  } as any;
 
   const trendOptions = {
     responsive: true,
@@ -49,7 +50,7 @@ const StudentDetailPage = (): React.ReactElement => {
       title: { display: true, text: 'Risk Score Trend (%)' },
     },
     scales: { y: { min: 0, max: 100 } },
-  };
+  } as any;
 
   const latestRisk = riskHistory.length > 0 ? riskHistory[riskHistory.length - 1] : null;
   const riskLevel = latestRisk?.risk_level || 'low';
@@ -98,6 +99,13 @@ const StudentDetailPage = (): React.ReactElement => {
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="lg:col-span-2 space-y-6">
+          {/* Attendance Heatmap */}
+          <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+            <h3 className="text-lg font-bold text-gray-900 mb-4">Attendance Pattern</h3>
+            <HeatmapChart />
+          </div>
+
+          {/* Risk Factors */}
           <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
             <h3 className="text-lg font-bold text-gray-900 mb-4 flex items-center"><AlertOctagon className="w-5 h-5 mr-2 text-primary" /> Risk Factors</h3>
             <div className="space-y-3">
@@ -110,6 +118,7 @@ const StudentDetailPage = (): React.ReactElement => {
             </div>
           </div>
 
+          {/* Risk Score Trend */}
           <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
             {riskHistory.length > 0 ? (
               <Line data={trendData} options={trendOptions} />
