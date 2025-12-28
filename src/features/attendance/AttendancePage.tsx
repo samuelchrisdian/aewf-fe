@@ -1,16 +1,20 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { useDailyAttendanceQuery } from './queries';
+import { useClassesQuery } from '../classes/queries';
 import { Calendar, Download, Filter, CheckCircle, XCircle, Clock, FileText } from 'lucide-react';
 
 export const AttendancePage = (): React.ReactElement => {
-  const today = new Date().toISOString().split('T')[0];
-  const [selectedDate, setSelectedDate] = useState(today);
-  const [classFilter, setClassFilter] = useState<number | undefined>();
+  // Get current month in YYYY-MM format
+  const currentMonth = new Date().toISOString().slice(0, 7);
+  const [selectedMonth, setSelectedMonth] = useState(currentMonth);
+  const [classFilter, setClassFilter] = useState<string | undefined>();
 
   const { data: attendanceData, isLoading } = useDailyAttendanceQuery({
-    date: selectedDate,
-    class_id: classFilter
+    month: selectedMonth,
+    ...(classFilter && { class_id: classFilter })
   });
+
+  const { data: classesData } = useClassesQuery();
 
   // Ensure attendance is always an array
   const attendance = Array.isArray(attendanceData)
@@ -19,6 +23,24 @@ export const AttendancePage = (): React.ReactElement => {
     ? attendanceData.data
     : [];
 
+  // Get unique classes from classes API
+  const uniqueClasses = useMemo(() => {
+    if (classesData) {
+      const classes = Array.isArray(classesData)
+        ? classesData
+        : (classesData?.data && Array.isArray(classesData.data))
+        ? classesData.data
+        : [];
+
+      // Map to expected format: { id, name } using class_id and class_name
+      return classes.map((cls: any) => ({
+        id: cls.class_id,
+        name: cls.class_name,
+      }));
+    }
+    return [];
+  }, [classesData]);
+
   const handleExport = () => {
     if (!attendance || attendance.length === 0) {
       alert('No data to export');
@@ -26,8 +48,9 @@ export const AttendancePage = (): React.ReactElement => {
     }
 
     // Create CSV content
-    const headers = ['NIS', 'Name', 'Status', 'Check In', 'Check Out', 'Notes'];
+    const headers = ['Date', 'NIS', 'Name', 'Status', 'Check In', 'Check Out', 'Notes'];
     const rows = attendance.map(record => [
+      record.date,
       record.student_nis,
       record.student_name || 'N/A',
       record.status,
@@ -46,7 +69,7 @@ export const AttendancePage = (): React.ReactElement => {
     const link = document.createElement('a');
     const url = URL.createObjectURL(blob);
     link.setAttribute('href', url);
-    link.setAttribute('download', `attendance_${selectedDate}.csv`);
+    link.setAttribute('download', `attendance_${selectedMonth}.csv`);
     link.style.visibility = 'hidden';
     document.body.appendChild(link);
     link.click();
@@ -96,6 +119,13 @@ export const AttendancePage = (): React.ReactElement => {
     ? ((stats.present / stats.total) * 100).toFixed(1)
     : '0';
 
+  // Format selected month for display
+  const formatMonthDisplay = (monthStr: string) => {
+    const [year, month] = monthStr.split('-');
+    const date = new Date(parseInt(year), parseInt(month) - 1);
+    return date.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+  };
+
   if (isLoading) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -109,8 +139,10 @@ export const AttendancePage = (): React.ReactElement => {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Daily Attendance</h1>
-          <p className="text-gray-500 mt-1">Monitor and manage student attendance</p>
+          <h1 className="text-2xl font-bold text-gray-900">Monthly Attendance</h1>
+          <p className="text-gray-500 mt-1">
+            Viewing attendance for <span className="font-semibold text-gray-700">{formatMonthDisplay(selectedMonth)}</span>
+          </p>
         </div>
         <button
           onClick={handleExport}
@@ -127,9 +159,9 @@ export const AttendancePage = (): React.ReactElement => {
           <div className="flex-1 relative">
             <Calendar className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
             <input
-              type="date"
-              value={selectedDate}
-              onChange={(e) => setSelectedDate(e.target.value)}
+              type="month"
+              value={selectedMonth}
+              onChange={(e) => setSelectedMonth(e.target.value)}
               className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
             />
           </div>
@@ -137,13 +169,15 @@ export const AttendancePage = (): React.ReactElement => {
             <Filter className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
             <select
               value={classFilter || ''}
-              onChange={(e) => setClassFilter(e.target.value ? Number(e.target.value) : undefined)}
+              onChange={(e) => setClassFilter(e.target.value || undefined)}
               className="pl-10 pr-8 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
             >
               <option value="">All Classes</option>
-              <option value="1">10-A</option>
-              <option value="2">10-B</option>
-              <option value="3">11-A</option>
+              {uniqueClasses.map((cls) => (
+                <option key={cls.id} value={cls.id}>
+                  {cls.name}
+                </option>
+              ))}
             </select>
           </div>
         </div>
@@ -152,8 +186,8 @@ export const AttendancePage = (): React.ReactElement => {
       {/* Stats */}
       <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
         <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
-          <p className="text-sm text-gray-500">Attendance Rate</p>
-          <p className="text-2xl font-bold text-blue-600">{attendanceRate}%</p>
+          <p className="text-sm text-gray-500">Total Records</p>
+          <p className="text-2xl font-bold text-gray-900">{stats?.total || 0}</p>
         </div>
         <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
           <p className="text-sm text-gray-500">Present</p>
@@ -168,8 +202,8 @@ export const AttendancePage = (): React.ReactElement => {
           <p className="text-2xl font-bold text-yellow-600">{stats?.late || 0}</p>
         </div>
         <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
-          <p className="text-sm text-gray-500">Excused</p>
-          <p className="text-2xl font-bold text-blue-600">{stats?.excused || 0}</p>
+          <p className="text-sm text-gray-500">Attendance Rate</p>
+          <p className="text-2xl font-bold text-blue-600">{attendanceRate}%</p>
         </div>
       </div>
 
@@ -179,6 +213,9 @@ export const AttendancePage = (): React.ReactElement => {
           <table className="w-full">
             <thead className="bg-gray-50 border-b border-gray-200">
               <tr>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Date
+                </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Student
                 </th>
@@ -202,6 +239,13 @@ export const AttendancePage = (): React.ReactElement => {
             <tbody className="bg-white divide-y divide-gray-200">
               {attendance?.map((record) => (
                 <tr key={record.id} className="hover:bg-gray-50 transition">
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700 font-medium">
+                    {new Date(record.date).toLocaleDateString('en-US', {
+                      month: 'short',
+                      day: 'numeric',
+                      year: 'numeric'
+                    })}
+                  </td>
                   <td className="px-6 py-4 whitespace-nowrap">
                     <div className="flex items-center">
                       <div className="h-10 w-10 rounded-full bg-blue-100 flex items-center justify-center text-blue-600 font-semibold">
@@ -240,7 +284,9 @@ export const AttendancePage = (): React.ReactElement => {
 
         {(!attendance || attendance.length === 0) && (
           <div className="text-center py-12">
-            <p className="text-gray-500">No attendance records for this date</p>
+            <Calendar className="w-12 h-12 text-gray-300 mx-auto mb-3" />
+            <p className="text-gray-500 font-medium">No attendance records for this month</p>
+            <p className="text-sm text-gray-400 mt-1">Try selecting a different month or class</p>
           </div>
         )}
       </div>

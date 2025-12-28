@@ -10,13 +10,28 @@ export function useClassesQuery() {
   return useQuery({
     queryKey: CLASSES_QUERY_KEY,
     queryFn: async () => {
-      const response = await apiClient.get<any>('/api/v1/classes');
-      // Extract array from response
-      if (Array.isArray(response)) return response;
-      if (response.data && Array.isArray(response.data)) return response.data;
-      return [];
+      try {
+        const response = await apiClient.get<any>('/api/v1/classes');
+
+        // Extract array from response
+        if (Array.isArray(response)) {
+          return response;
+        }
+        if (response.data && Array.isArray(response.data)) {
+          return response.data;
+        }
+        if (response.success && response.data && Array.isArray(response.data)) {
+          return response.data;
+        }
+
+        return [];
+      } catch (error) {
+        console.error('Classes API error:', error);
+        throw error;
+      }
     },
     staleTime: 1000 * 60 * 5, // 5 minutes
+    retry: 2,
   });
 }
 
