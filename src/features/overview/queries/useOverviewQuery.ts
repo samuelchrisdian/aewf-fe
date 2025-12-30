@@ -7,8 +7,25 @@ export function useOverviewQuery() {
     return useQuery({
         queryKey: OVERVIEW_QUERY_KEY,
         queryFn: async () => {
-            const response = await apiClient.get<any>('/api/v1/dashboard/stats');
-            const apiData = response.data || response;
+            // Fetch dashboard stats and recent alerts in parallel
+            const [statsResponse, alertsResponse] = await Promise.all([
+                apiClient.get<any>('/api/v1/dashboard/stats'),
+                apiClient.get<any>('/api/v1/risk/alerts?limit=5').catch(() => ({ data: { alerts: [] } }))
+            ]);
+
+            const apiData = statsResponse.data || statsResponse;
+            const alertsData = alertsResponse.data || alertsResponse;
+
+            // Transform alerts to match frontend expectations
+            const recentAlerts = (alertsData.alerts || alertsData || []).slice(0, 5).map((alert: any) => ({
+                id: alert.id,
+                student_name: alert.student_name || alert.student?.name || 'Unknown',
+                student_nis: alert.student_nis,
+                risk_level: alert.alert_type?.toLowerCase() || alert.risk_level || 'medium',
+                message: alert.message || `${alert.alert_type} alert`,
+                status: alert.status || 'pending',
+                created_at: alert.created_at || new Date().toISOString(),
+            }));
 
             // Transform API response structure to match frontend expectations
             return {
@@ -36,7 +53,7 @@ export function useOverviewQuery() {
                     total_lates: apiData.this_month?.total_lates || 0,
                     trend: apiData.this_month?.trend || '+0.0%',
                 },
-                recent_alerts: apiData.recent_alerts || [],
+                recent_alerts: recentAlerts,
             };
         },
         staleTime: 1000 * 60 * 2, // 2 minutes

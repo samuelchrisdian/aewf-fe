@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Outlet, Link, useLocation, useNavigate } from 'react-router-dom';
-import { LayoutDashboard, AlertTriangle, Menu, X, GraduationCap, LogOut, User, Users, Calendar, BarChart3, BookOpen, Server } from 'lucide-react';
+import { LayoutDashboard, AlertTriangle, Menu, X, GraduationCap, LogOut, User, Users, Calendar, BarChart3, BookOpen, Server, MoreVertical } from 'lucide-react';
 import { useAuth } from '../features/auth/hooks';
 
 interface NavigationItem {
@@ -99,7 +99,7 @@ const Layout = (): React.ReactElement => {
                                 onClick={() => setIsProfileOpen(!isProfileOpen)}
                                 className="p-1 hover:bg-gray-100 rounded-lg transition"
                             >
-                                <X className="w-4 h-4 text-gray-500" />
+                                <MoreVertical className="w-4 h-4 text-gray-500" />
                             </button>
                             {isProfileOpen && (
                                 <div className="absolute bottom-12 right-0 w-48 bg-white rounded-lg shadow-lg border border-gray-200 py-2 z-50">

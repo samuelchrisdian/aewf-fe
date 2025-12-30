@@ -9,11 +9,18 @@ export function useStudentQuery(nis?: string | null) {
     queryKey: STUDENT_QUERY_KEY(nis),
     queryFn: async () => {
       if (!nis) return null;
-      const response = await apiClient.get<any>(`/api/v1/students/${nis}`);
-      // Extract data from response
-      return response.data || response;
+
+      try {
+        const response = await apiClient.get<any>(`/api/v1/students/${nis}`);
+        // Extract data from response
+        return response.data || response;
+      } catch (error) {
+        console.error('Failed to fetch student:', error);
+        return null;
+      }
     },
     enabled: !!nis,
     staleTime: 1000 * 60 * 5, // 5 minutes
+    retry: false,
   });
 }

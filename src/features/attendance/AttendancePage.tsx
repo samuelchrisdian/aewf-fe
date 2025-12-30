@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useCallback } from 'react';
 import { useDailyAttendanceQuery } from './queries';
 import { useClassesQuery } from '../classes/queries';
 import { Calendar, Download, Filter, CheckCircle, XCircle, Clock, FileText } from 'lucide-react';
@@ -9,19 +9,45 @@ export const AttendancePage = (): React.ReactElement => {
   const [selectedMonth, setSelectedMonth] = useState(currentMonth);
   const [classFilter, setClassFilter] = useState<string | undefined>();
 
-  const { data: attendanceData, isLoading } = useDailyAttendanceQuery({
+  const { data: attendance = [], isLoading } = useDailyAttendanceQuery({
     month: selectedMonth,
-    ...(classFilter && { class_id: classFilter })
+    class_id: classFilter,
   });
 
   const { data: classesData } = useClassesQuery();
 
-  // Ensure attendance is always an array
-  const attendance = Array.isArray(attendanceData)
-    ? attendanceData
-    : (attendanceData?.data && Array.isArray(attendanceData.data))
-    ? attendanceData.data
-    : [];
+  // Safe date formatter
+  const formatDate = useCallback((dateStr: string) => {
+    if (!dateStr) return 'N/A';
+    try {
+      const date = new Date(dateStr);
+      if (isNaN(date.getTime())) return dateStr; // Return original if invalid
+      return date.toLocaleDateString('en-US', {
+        month: 'short',
+        day: 'numeric',
+        year: 'numeric'
+      });
+    } catch {
+      return dateStr;
+    }
+  }, []);
+
+  // Safe time formatter
+  const formatTime = useCallback((timeStr?: string) => {
+    if (!timeStr) return '-';
+    try {
+      // Handle both full datetime and time-only strings
+      if (timeStr.includes('T') || timeStr.includes(' ')) {
+        const date = new Date(timeStr);
+        if (isNaN(date.getTime())) return timeStr;
+        return date.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
+      }
+      // Already a time string like "07:30"
+      return timeStr;
+    } catch {
+      return timeStr;
+    }
+  }, []);
 
   // Get unique classes from classes API
   const uniqueClasses = useMemo(() => {
@@ -29,8 +55,8 @@ export const AttendancePage = (): React.ReactElement => {
       const classes = Array.isArray(classesData)
         ? classesData
         : (classesData?.data && Array.isArray(classesData.data))
-        ? classesData.data
-        : [];
+          ? classesData.data
+          : [];
 
       // Map to expected format: { id, name } using class_id and class_name
       return classes.map((cls: any) => ({
@@ -237,14 +263,10 @@ export const AttendancePage = (): React.ReactElement => {
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
-              {attendance?.map((record) => (
+              {attendance.map((record) => (
                 <tr key={record.id} className="hover:bg-gray-50 transition">
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700 font-medium">
-                    {new Date(record.date).toLocaleDateString('en-US', {
-                      month: 'short',
-                      day: 'numeric',
-                      year: 'numeric'
-                    })}
+                    {formatDate(record.date)}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
                     <div className="flex items-center">
@@ -268,10 +290,10 @@ export const AttendancePage = (): React.ReactElement => {
                     </span>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                    {record.check_in ? new Date(record.check_in).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }) : '-'}
+                    {formatTime(record.check_in)}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                    {record.check_out ? new Date(record.check_out).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }) : '-'}
+                    {formatTime(record.check_out)}
                   </td>
                   <td className="px-6 py-4 text-sm text-gray-500">
                     {record.notes || '-'}
