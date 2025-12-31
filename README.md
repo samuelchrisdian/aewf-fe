@@ -488,9 +488,9 @@ export const apiClient = new ApiClient();
 #### Analytics
 | Method | Endpoint | Description |
 |--------|----------|-------------|
-| GET | `/api/v1/analytics/trends` | Attendance trends |
-| GET | `/api/v1/analytics/class-comparison` | Class comparison |
-| GET | `/api/v1/analytics/student-patterns/:nis` | Student patterns |
+| GET | `/api/v1/analytics/trends` | Attendance trends. Query: `?period=weekly\|monthly&start_date=YYYY-MM-DD&end_date=YYYY-MM-DD` |
+| GET | `/api/v1/analytics/class-comparison` | Class comparison. Query: `?period=YYYY-MM` |
+| GET | `/api/v1/analytics/student-patterns/:nis` | Individual student attendance patterns (summary, trend, weekly patterns) |
 
 #### Classes
 | Method | Endpoint | Description |

@@ -10,8 +10,29 @@ export function useAttendanceTrendsQuery(period?: 'weekly' | 'monthly') {
   return useQuery({
     queryKey: [...ATTENDANCE_TRENDS_QUERY_KEY, period],
     queryFn: async () => {
+      // Calculate date ranges based on period
+      const now = new Date();
+      let startDate: string;
+      let endDate: string = now.toISOString().split('T')[0]; // Today as end_date
+
+      if (period === 'weekly') {
+        // Get data for the last 4 weeks
+        const start = new Date(now);
+        start.setDate(start.getDate() - 28);
+        startDate = start.toISOString().split('T')[0];
+      } else {
+        // Get data for the last 6 months for monthly
+        const start = new Date(now);
+        start.setMonth(start.getMonth() - 6);
+        startDate = start.toISOString().split('T')[0];
+      }
+
       const response = await apiClient.get<any>('/api/v1/analytics/trends', {
-        params: { period }
+        params: {
+          period,
+          start_date: startDate,
+          end_date: endDate
+        }
       });
       // Extract array from response
       if (Array.isArray(response)) return response;
