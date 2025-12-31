@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Outlet, Link, useLocation, useNavigate } from 'react-router-dom';
-import { LayoutDashboard, AlertTriangle, Menu, X, GraduationCap, LogOut, User, Users, Calendar, BarChart3, BookOpen, Server, MoreVertical } from 'lucide-react';
+import { LayoutDashboard, AlertTriangle, Menu, X, GraduationCap, LogOut, User, Users, Calendar, BarChart3, BookOpen, Server, Upload, Link2, MoreVertical } from 'lucide-react';
 import { useAuth } from '../features/auth/hooks';
 
 interface NavigationItem {
@@ -25,13 +25,16 @@ const Layout = (): React.ReactElement => {
         { name: 'Analytics', href: '/analytics', icon: BarChart3 },
         { name: 'Classes', href: '/classes', icon: BookOpen, adminOnly: true },
         { name: 'Machines', href: '/machines', icon: Server, adminOnly: true },
+        { name: 'Import', href: '/import', icon: Upload, adminOnly: true },
+        { name: 'Mapping', href: '/mapping', icon: Link2, adminOnly: true },
     ];
+
 
     // Filter navigation based on user role
     const filteredNavigation = navigation.filter(item => {
         // If item is admin only, check if user is admin
         if (item.adminOnly) {
-            return user?.role === 'admin';
+            return user?.role?.toLowerCase() === 'admin';
         }
         return true;
     });

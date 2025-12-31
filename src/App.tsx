@@ -13,6 +13,8 @@ const AttendancePage = lazy(() => import('./features/attendance').then(module =>
 const AnalyticsPage = lazy(() => import('./features/analytics').then(module => ({ default: module.AnalyticsPage })));
 const ClassesPage = lazy(() => import('./features/classes').then(module => ({ default: module.ClassesPage })));
 const MachinesPage = lazy(() => import('./features/machines').then(module => ({ default: module.MachinesPage })));
+const ImportPage = lazy(() => import('./features/import').then(module => ({ default: module.ImportPage })));
+const MappingPage = lazy(() => import('./features/mapping').then(module => ({ default: module.MappingPage })));
 
 function App(): React.ReactElement {
     return (
@@ -89,6 +91,22 @@ function App(): React.ReactElement {
                             element={
                                 <Suspense fallback={<div className="p-10 text-center">Loading...</div>}>
                                     <MachinesPage />
+                                </Suspense>
+                            }
+                        />
+                        <Route
+                            path="import"
+                            element={
+                                <Suspense fallback={<div className="p-10 text-center">Loading...</div>}>
+                                    <ImportPage />
+                                </Suspense>
+                            }
+                        />
+                        <Route
+                            path="mapping"
+                            element={
+                                <Suspense fallback={<div className="p-10 text-center">Loading...</div>}>
+                                    <MappingPage />
                                 </Suspense>
                             }
                         />

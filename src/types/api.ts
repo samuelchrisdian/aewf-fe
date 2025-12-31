@@ -299,3 +299,83 @@ export interface ReportParams {
   class_id?: number;
 }
 
+// ============ Import System Types ============
+export interface ImportError {
+  row?: number;
+  field?: string;
+  message: string;
+}
+
+export interface ImportBatch {
+  id: number;
+  filename: string;
+  file_type: 'master' | 'users' | 'logs';
+  status: 'processing' | 'completed' | 'failed' | 'partial';
+  records_processed: number;
+  error_log: ImportError[];
+  created_at: string;
+  created_by?: string;
+}
+
+export interface ImportResponse {
+  success: boolean;
+  message: string;
+  batch_id?: number;
+  records_processed?: number;
+  errors?: ImportError[];
+}
+
+export interface ImportBatchListParams {
+  file_type?: 'master' | 'users' | 'logs';
+  status?: 'processing' | 'completed' | 'failed' | 'partial';
+  page?: number;
+  per_page?: number;
+}
+
+// ============ Mapping System Types ============
+export interface MachineUserForMapping {
+  id: number;
+  machine_user_id: string;
+  machine_user_name: string;
+  department?: string;
+}
+
+export interface MappingSuggestion {
+  id: number;
+  machine_user: MachineUserForMapping;
+  suggested_student: {
+    nis: string;
+    name: string;
+  } | null;
+  confidence_score: number;
+  status: 'pending' | 'verified' | 'rejected';
+  verified_at?: string;
+  verified_by?: string;
+}
+
+export interface MappingStats {
+  total_users: number;
+  mapped: number;
+  pending: number;
+  unmapped: number;
+}
+
+export interface VerifyMappingRequest {
+  mapping_id: number;
+  status: 'verified' | 'rejected';
+}
+
+export interface BulkVerifyRequest {
+  mappings: VerifyMappingRequest[];
+}
+
+export interface ProcessMappingResponse {
+  success: boolean;
+  message: string;
+  results?: {
+    processed: number;
+    matched: number;
+    unmatched: number;
+  };
+}
+

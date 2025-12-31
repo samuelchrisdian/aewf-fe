@@ -173,6 +173,23 @@
 - [x] View machine users
 - [x] Machine-Student mapping
 
+#### 📥 Import System (Admin Only)
+- [x] Multi-step import wizard UI
+- [x] Import master data (Students, Classes, Teachers)
+- [x] Sync machine users from fingerprint export
+- [x] Import attendance logs
+- [x] Import batch history and status tracking
+- [x] File upload with validation
+
+#### 🔗 Fuzzy Mapping System (Admin Only)
+- [x] Mapping dashboard with statistics
+- [x] View unmapped machine users
+- [x] Auto-mapping with fuzzy name matching
+- [x] Confidence score indicators (High/Medium/Low)
+- [x] Verify/Reject individual mappings
+- [x] Bulk verify multiple mappings
+- [x] Manual mapping for unmatched users
+
 ---
 
 ## 📁 Project Structure
@@ -210,8 +227,28 @@ src/
 │   ├── classes/               # Class management
 │   │   ├── ClassesPage.tsx
 │   │   └── queries/
+│   ├── import/                # Import wizard (Admin only)
+│   │   ├── ImportPage.tsx     # Multi-step import wizard
+│   │   ├── components/
+│   │   │   ├── ImportStepper.tsx
+│   │   │   ├── ImportMasterStep.tsx
+│   │   │   ├── ImportUsersStep.tsx
+│   │   │   ├── ImportMappingStep.tsx
+│   │   │   ├── ImportAttendanceStep.tsx
+│   │   │   └── FileUploader.tsx
+│   │   └── queries/
 │   ├── machines/              # Machine management
 │   │   ├── MachinesPage.tsx
+│   │   └── queries/
+│   ├── mapping/               # Fuzzy mapping system (Admin only)
+│   │   ├── MappingPage.tsx    # Mapping dashboard
+│   │   ├── components/
+│   │   │   ├── MappingStats.tsx
+│   │   │   ├── UnmappedUsersList.tsx
+│   │   │   ├── MappingSuggestionCard.tsx
+│   │   │   ├── BulkVerifyModal.tsx
+│   │   │   ├── ManualMappingModal.tsx
+│   │   │   └── ConfidenceScoreBadge.tsx
 │   │   └── queries/
 │   ├── overview/              # Dashboard
 │   │   ├── OverviewPage.tsx
@@ -472,6 +509,26 @@ export const apiClient = new ApiClient();
 | DELETE | `/api/v1/machines/:id` | Delete machine |
 | GET | `/api/v1/machines/:id/users` | Get machine users |
 
+#### Import System
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| POST | `/api/v1/import/master` | Import master data (Students, Classes, Teachers) |
+| POST | `/api/v1/import/users-sync` | Sync machine users from fingerprint export |
+| POST | `/api/v1/import/attendance` | Import attendance logs |
+| GET | `/api/v1/import/batches` | List import batch history |
+| GET | `/api/v1/import/batches/:id` | Get batch details |
+| POST | `/api/v1/import/batches/:id/rollback` | Rollback batch |
+
+#### Fuzzy Mapping
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/api/v1/mapping/stats` | Get mapping statistics |
+| GET | `/api/v1/mapping/unmapped` | List unmapped users with suggestions |
+| POST | `/api/v1/mapping/process` | Run auto-mapping engine |
+| POST | `/api/v1/mapping/verify` | Verify single mapping |
+| POST | `/api/v1/mapping/bulk-verify` | Bulk verify/reject mappings |
+| DELETE | `/api/v1/mapping/:id` | Delete a mapping |
+
 ---
 
 ## 🧩 Components Documentation
@@ -630,6 +687,8 @@ export function useCreateStudent() {
 /analytics          # Analytics & charts
 /classes            # Class management (Admin only)
 /machines           # Machine management (Admin only)
+/import             # Import wizard (Admin only)
+/mapping            # Fuzzy mapping dashboard (Admin only)
 ```
 
 ### Route Configuration
@@ -695,12 +754,14 @@ const navigation = [
   { name: 'Analytics', href: '/analytics', icon: BarChart3 },
   { name: 'Classes', href: '/classes', icon: BookOpen, adminOnly: true },
   { name: 'Machines', href: '/machines', icon: Server, adminOnly: true },
+  { name: 'Import', href: '/import', icon: Upload, adminOnly: true },
+  { name: 'Mapping', href: '/mapping', icon: Link2, adminOnly: true },
 ];
 
-// Filter navigation based on user role
+// Filter navigation based on user role (case-insensitive)
 const filteredNavigation = navigation.filter(item => {
   if (item.adminOnly) {
-    return user?.role === 'admin';
+    return user?.role?.toLowerCase() === 'admin';
   }
   return true;
 });
