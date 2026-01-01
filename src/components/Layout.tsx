@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
 import { Outlet, Link, useLocation, useNavigate } from 'react-router-dom';
-import { LayoutDashboard, AlertTriangle, Menu, X, GraduationCap, LogOut, User, Users, Calendar, BarChart3, BookOpen, Server, Upload, Link2, MoreVertical, FileText } from 'lucide-react';
+import { LayoutDashboard, AlertTriangle, Menu, X, GraduationCap, LogOut, User, Users, Calendar, BarChart3, BookOpen, Server, Upload, Link2, MoreVertical, FileText, Bell } from 'lucide-react';
 import { useAuth } from '../features/auth/hooks';
+import { NotificationDropdown } from '../features/notifications';
 
 interface NavigationItem {
     name: string;
@@ -28,6 +29,7 @@ const Layout = (): React.ReactElement => {
         { name: 'Import', href: '/import', icon: Upload, adminOnly: true },
         { name: 'Mapping', href: '/mapping', icon: Link2, adminOnly: true },
         { name: 'Reports', href: '/reports', icon: FileText },
+        { name: 'Notifications', href: '/notifications', icon: Bell },
     ];
 
 
@@ -129,7 +131,7 @@ const Layout = (): React.ReactElement => {
                         <Menu className="w-6 h-6" />
                     </button>
                     <span className="text-lg font-semibold text-gray-800">AEWF Dashboard</span>
-                    <div className="w-6" />
+                    <NotificationDropdown />
                 </header>
 
                 {/* Main Content - Scrollable */}

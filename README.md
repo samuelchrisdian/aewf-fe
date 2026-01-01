@@ -126,6 +126,8 @@
 - [x] Risk distribution chart (Doughnut)
 - [x] Recent alerts list
 - [x] Quick navigation to detailed pages
+- [x] **ML Model Status card** (status, last trained, metrics)
+- [x] **High Risk Students list** (top 5 at-risk with scores)
 
 #### 🚨 Alerts & Risk Management
 - [x] View all risk alerts
@@ -134,6 +136,7 @@
 - [x] Alert actions (Acknowledge, Resolve, Dismiss)
 - [x] Student detail view with risk history
 - [x] ML-based risk explanation text
+- [x] Feature Importance chart (factor weights visualization)
 
 #### 👨‍🎓 Student Management
 - [x] List all students with pagination
@@ -201,6 +204,23 @@
 - [x] Export attendance to Excel
 - [x] Download master data template
 
+#### 🤖 ML Model Management
+- [x] View model status (Available/Not Trained)
+- [x] View last trained timestamp
+- [x] View model performance metrics (Recall, F1, AUC-ROC)
+- [x] Trigger model retraining
+- [x] Feature importance visualization
+
+#### 🔔 Notifications System
+- [x] Notification bell with unread badge in header
+- [x] Notification dropdown for quick view
+- [x] Full notifications page with list
+- [x] Filter by status (All/Unread/Read)
+- [x] Mark notifications as read
+- [x] Delete notifications
+- [x] Auto-refresh (polling every 60 seconds)
+- [x] Sidebar navigation item
+
 ---
 
 ## 📁 Project Structure
@@ -213,11 +233,14 @@ src/
 │   ├── Card.tsx               # Stat card component
 │   ├── DataTable.tsx          # Generic data table with pagination
 │   ├── HeatmapChart.tsx       # Heatmap visualization
-│   └── Layout.tsx             # Main app layout with sidebar
+│   ├── Layout.tsx             # Main app layout with sidebar
+│   └── RiskExplanationPanel.tsx # ML risk explanation display
 ├── features/                   # Feature-based modules
 │   ├── alerts/                # Alert/Risk management
 │   │   ├── AlertsPage.tsx     # Alerts list page
 │   │   ├── StudentDetailPage.tsx  # Student risk detail
+│   │   ├── components/
+│   │   │   └── FeatureImportanceChart.tsx  # ML feature weights chart
 │   │   ├── context/           # Alert-specific context
 │   │   ├── models/            # TypeScript models
 │   │   ├── queries/           # React Query hooks
@@ -273,8 +296,23 @@ src/
 │   │       └── useReportQueries.ts    # React Query hooks
 │   ├── overview/              # Dashboard
 │   │   ├── OverviewPage.tsx
+│   │   ├── components/
+│   │   │   ├── ModelStatusCard.tsx      # ML model status display
+│   │   │   └── HighRiskStudentsList.tsx # Top at-risk students
 │   │   ├── context/
 │   │   └── queries/
+│   ├── ml/                    # ML Model Management
+│   │   ├── queries/
+│   │   │   └── useMLQueries.ts   # Model info, performance, retrain hooks
+│   │   └── index.tsx
+│   ├── notifications/         # Notifications System
+│   │   ├── NotificationsPage.tsx  # Full notifications page
+│   │   ├── components/
+│   │   │   ├── NotificationDropdown.tsx  # Bell + dropdown
+│   │   │   └── NotificationItem.tsx      # Single notification
+│   │   ├── queries/
+│   │   │   └── useNotificationQueries.ts # Notification hooks
+│   │   └── index.tsx
 │   └── students/              # Student management
 │       ├── StudentsPage.tsx
 │       └── queries/
@@ -560,6 +598,23 @@ export const apiClient = new ApiClient();
 | GET | `/api/v1/export/attendance` | Export attendance to Excel. Query: `?start_date&end_date&class_id` |
 | GET | `/api/v1/export/template/master` | Download master data import template |
 
+#### ML Model Management
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/api/v1/models/info` | Get model status, type, threshold, trained_at |
+| GET | `/api/v1/models/performance` | Get model metrics (recall, f1, auc_roc) |
+| POST | `/api/v1/models/retrain` | Trigger model retraining |
+
+#### Notifications
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/api/v1/notifications` | List notifications. Query: `?is_read=true\|false&page=1` |
+| PUT | `/api/v1/notifications/:id/read` | Mark notification as read |
+| DELETE | `/api/v1/notifications/:id` | Delete notification |
+| GET | `/api/v1/notifications/settings` | Get user notification preferences |
+| PUT | `/api/v1/notifications/settings` | Update notification preferences |
+
+
 ---
 
 ## 🧩 Components Documentation
@@ -721,6 +776,7 @@ export function useCreateStudent() {
 /import             # Import wizard (Admin only)
 /mapping            # Fuzzy mapping dashboard (Admin only)
 /reports            # Reports & Export (All roles)
+/notifications      # Notifications list (All roles)
 ```
 
 ### Route Configuration

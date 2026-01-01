@@ -1,12 +1,13 @@
 import React from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useStudentQuery, useRiskHistoryQuery, useStudentRiskQuery, useStudentAttendanceQuery } from './queries';
-import { Chart as ChartJS, CategoryScale, LinearScale, PointElement, LineElement, Title, Tooltip, Legend } from 'chart.js';
+import { Chart as ChartJS, CategoryScale, LinearScale, PointElement, LineElement, BarElement, Title, Tooltip, Legend } from 'chart.js';
 import { Line } from 'react-chartjs-2';
-import { AlertOctagon, CheckCircle, ArrowLeft, TrendingDown, TrendingUp, Clock, Calendar, AlertTriangle, Activity } from 'lucide-react';
+import { AlertOctagon, CheckCircle, ArrowLeft, TrendingDown, TrendingUp, Clock, Calendar, AlertTriangle, Activity, BarChart3 } from 'lucide-react';
 import HeatmapChart from '../../components/HeatmapChart';
+import FeatureImportanceChart from './components/FeatureImportanceChart';
 
-ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, Title, Tooltip, Legend);
+ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, BarElement, Title, Tooltip, Legend);
 
 const StudentDetailPage = (): React.ReactElement => {
   const navigate = useNavigate();
@@ -302,6 +303,16 @@ const StudentDetailPage = (): React.ReactElement => {
                   <span className="font-bold text-gray-900 capitalize">{riskProfile?.prediction_method || 'ML'}</span>
                 </div>
               </div>
+            </div>
+          )}
+
+          {/* Feature Importance Chart */}
+          {factors && (
+            <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+              <h3 className="text-lg font-bold text-gray-900 mb-4 flex items-center">
+                <BarChart3 className="w-5 h-5 mr-2 text-purple-600" /> Feature Importance
+              </h3>
+              <FeatureImportanceChart factors={factors} />
             </div>
           )}
 

@@ -16,6 +16,7 @@ const MachinesPage = lazy(() => import('./features/machines').then(module => ({ 
 const ImportPage = lazy(() => import('./features/import').then(module => ({ default: module.ImportPage })));
 const MappingPage = lazy(() => import('./features/mapping').then(module => ({ default: module.MappingPage })));
 const ReportsPage = lazy(() => import('./features/reports').then(module => ({ default: module.ReportsPage })));
+const NotificationsPage = lazy(() => import('./features/notifications').then(module => ({ default: module.NotificationsPage })));
 
 function App(): React.ReactElement {
     return (
@@ -116,6 +117,14 @@ function App(): React.ReactElement {
                             element={
                                 <Suspense fallback={<div className="p-10 text-center">Loading...</div>}>
                                     <ReportsPage />
+                                </Suspense>
+                            }
+                        />
+                        <Route
+                            path="notifications"
+                            element={
+                                <Suspense fallback={<div className="p-10 text-center">Loading...</div>}>
+                                    <NotificationsPage />
                                 </Suspense>
                             }
                         />

@@ -5,6 +5,8 @@ import { useOverviewQuery } from './queries/useOverviewQuery';
 import { Activity, AlertTriangle, ArrowRight, Users } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import Card from '../../components/Card';
+import ModelStatusCard from './components/ModelStatusCard';
+import HighRiskStudentsList from './components/HighRiskStudentsList';
 
 ChartJS.register(ArcElement, Tooltip, Legend);
 
@@ -36,9 +38,9 @@ const OverviewPage = (): React.ReactElement => {
 
     // Calculate total risk students
     const totalRiskStudents = (data.risk_summary?.low || 0) +
-                              (data.risk_summary?.medium || 0) +
-                              (data.risk_summary?.high || 0) +
-                              (data.risk_summary?.critical || 0);
+        (data.risk_summary?.medium || 0) +
+        (data.risk_summary?.high || 0) +
+        (data.risk_summary?.critical || 0);
 
     const chartData = {
         labels: ['Low Risk', 'Medium Risk', 'High Risk', 'Critical'],
@@ -160,13 +162,12 @@ const OverviewPage = (): React.ReactElement => {
                             data.recent_alerts.map((alert) => (
                                 <div key={alert.id} className="p-4 flex items-center justify-between hover:bg-gray-50 transition-colors">
                                     <div className="flex items-center gap-4">
-                                        <div className={`w-2 h-2 rounded-full ${
-                                            alert.risk_level === 'critical' || alert.risk_level === 'high'
+                                        <div className={`w-2 h-2 rounded-full ${alert.risk_level === 'critical' || alert.risk_level === 'high'
                                                 ? 'bg-red-500'
                                                 : alert.risk_level === 'medium'
                                                     ? 'bg-yellow-500'
                                                     : 'bg-green-500'
-                                        }`} />
+                                            }`} />
                                         <div>
                                             <p className="text-sm font-semibold text-gray-900">{alert.student_name}</p>
                                             <p className="text-xs text-gray-500">{alert.message || 'Risk alert'}</p>
@@ -184,6 +185,12 @@ const OverviewPage = (): React.ReactElement => {
                         )}
                     </div>
                 </div>
+            </div>
+
+            {/* ML Model Status & High Risk Students */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                <ModelStatusCard />
+                <HighRiskStudentsList />
             </div>
         </div>
     );
