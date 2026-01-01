@@ -806,6 +806,10 @@ export function useCreateStudent() {
         <Route path="analytics" element={<AnalyticsPage />} />
         <Route path="classes" element={<ClassesPage />} />
         <Route path="machines" element={<MachinesPage />} />
+        <Route path="import" element={<ImportPage />} />
+        <Route path="mapping" element={<MappingPage />} />
+        <Route path="reports" element={<ReportsPage />} />
+        <Route path="notifications" element={<NotificationsPage />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Route>
     </Routes>
@@ -845,6 +849,7 @@ const navigation = [
   { name: 'Import', href: '/import', icon: Upload, adminOnly: true },
   { name: 'Mapping', href: '/mapping', icon: Link2, adminOnly: true },
   { name: 'Reports', href: '/reports', icon: FileText },
+  { name: 'Notifications', href: '/notifications', icon: Bell },
 ];
 
 // Filter navigation based on user role (case-insensitive)
