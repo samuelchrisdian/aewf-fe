@@ -190,6 +190,17 @@
 - [x] Bulk verify multiple mappings
 - [x] Manual mapping for unmatched users
 
+#### 📊 Reports & Export System
+- [x] Three report types: Attendance, Risk, Class Summary
+- [x] Tabbed UI for report selection
+- [x] Date range filters with class selection
+- [x] Generate attendance summary reports
+- [x] Generate risk analysis reports with student breakdown
+- [x] Generate class summary with wali kelas information
+- [x] Export students to Excel
+- [x] Export attendance to Excel
+- [x] Download master data template
+
 ---
 
 ## 📁 Project Structure
@@ -250,6 +261,16 @@ src/
 │   │   │   ├── ManualMappingModal.tsx
 │   │   │   └── ConfidenceScoreBadge.tsx
 │   │   └── queries/
+│   ├── reports/               # Reports & Export system
+│   │   ├── ReportsPage.tsx    # Main reports page with tabs
+│   │   ├── components/
+│   │   │   ├── ReportFilters.tsx      # Date range & class filters
+│   │   │   ├── ExportButton.tsx       # Download button component
+│   │   │   ├── AttendanceReport.tsx   # Attendance report table
+│   │   │   ├── RiskReport.tsx         # Risk students table
+│   │   │   └── ClassSummaryReport.tsx # Class summary table
+│   │   └── queries/
+│   │       └── useReportQueries.ts    # React Query hooks
 │   ├── overview/              # Dashboard
 │   │   ├── OverviewPage.tsx
 │   │   ├── context/
@@ -529,6 +550,16 @@ export const apiClient = new ApiClient();
 | POST | `/api/v1/mapping/bulk-verify` | Bulk verify/reject mappings |
 | DELETE | `/api/v1/mapping/:id` | Delete a mapping |
 
+#### Reports & Export
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/api/v1/reports/attendance` | Generate attendance report. Query: `?start_date=YYYY-MM-DD&end_date=YYYY-MM-DD&class_id=XXX` |
+| GET | `/api/v1/reports/risk` | Generate risk report. Returns students with risk levels |
+| GET | `/api/v1/reports/class-summary` | Generate class summary. Query: `?start_date=YYYY-MM-DD&end_date=YYYY-MM-DD` |
+| GET | `/api/v1/export/students` | Export students to Excel. Query: `?class_id=XXX` |
+| GET | `/api/v1/export/attendance` | Export attendance to Excel. Query: `?start_date&end_date&class_id` |
+| GET | `/api/v1/export/template/master` | Download master data import template |
+
 ---
 
 ## 🧩 Components Documentation
@@ -689,6 +720,7 @@ export function useCreateStudent() {
 /machines           # Machine management (Admin only)
 /import             # Import wizard (Admin only)
 /mapping            # Fuzzy mapping dashboard (Admin only)
+/reports            # Reports & Export (All roles)
 ```
 
 ### Route Configuration
@@ -756,6 +788,7 @@ const navigation = [
   { name: 'Machines', href: '/machines', icon: Server, adminOnly: true },
   { name: 'Import', href: '/import', icon: Upload, adminOnly: true },
   { name: 'Mapping', href: '/mapping', icon: Link2, adminOnly: true },
+  { name: 'Reports', href: '/reports', icon: FileText },
 ];
 
 // Filter navigation based on user role (case-insensitive)

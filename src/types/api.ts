@@ -296,7 +296,108 @@ export interface ReportParams {
   format?: 'json' | 'excel' | 'pdf';
   start_date?: string;
   end_date?: string;
-  class_id?: number;
+  class_id?: string;
+}
+
+export interface AttendanceReportParams {
+  start_date: string;
+  end_date: string;
+  class_id?: string;
+  student_nis?: string;
+  format?: 'json' | 'excel';
+}
+
+export interface AttendanceReportItem {
+  student_nis: string;
+  student_name: string;
+  class_name: string;
+  present: number;
+  absent: number;
+  late: number;
+  excused: number;
+  sick?: number;
+  permission?: number;
+  total_days: number;
+  attendance_rate: number;
+  daily_records?: {
+    date: string;
+    status: 'present' | 'absent' | 'late' | 'excused' | 'sick' | 'permission';
+  }[];
+}
+
+export interface AttendanceReportResponse {
+  period: { start_date: string; end_date: string };
+  report_type?: string;
+  generated_at?: string;
+  filters?: any;
+  class_id?: string;
+  class_name?: string;
+  wali_kelas?: any;
+  // Backend uses daily_breakdown, we also support records for flexibility
+  daily_breakdown?: AttendanceReportItem[];
+  records?: AttendanceReportItem[];
+  summary?: {
+    total_students: number;
+    average_attendance: number;
+  };
+}
+
+export interface RiskReportParams {
+  class_id?: string;
+  format?: 'json' | 'excel';
+}
+
+export interface RiskReportItem {
+  student_nis: string;
+  student_name: string;
+  class_name: string;
+  risk_level: 'low' | 'medium' | 'high' | 'critical';
+  risk_score: number;
+  absent_count: number;
+  late_count: number;
+  last_calculated: string;
+}
+
+export interface RiskReportResponse {
+  generated_at?: string;
+  report_type?: string;
+  filters?: any;
+  class_id?: string;
+  // Backend uses 'students', we also support at_risk_students for flexibility
+  students?: RiskReportItem[];
+  at_risk_students?: RiskReportItem[];
+  summary?: {
+    total_high_risk: number;
+    total_medium_risk: number;
+    total_low_risk: number;
+  };
+}
+
+export interface ClassSummaryParams {
+  start_date?: string;
+  end_date?: string;
+  format?: 'json' | 'excel';
+}
+
+export interface ClassSummaryItem {
+  class_id: string;
+  class_name: string;
+  wali_kelas?: string;
+  total_students: number;
+  average_attendance: number;
+  high_risk_count: number;
+  medium_risk_count: number;
+}
+
+export interface ClassSummaryResponse {
+  period: { start_date: string; end_date: string };
+  classes: ClassSummaryItem[];
+}
+
+export interface ExportParams {
+  class_id?: string;
+  start_date?: string;
+  end_date?: string;
 }
 
 // ============ Import System Types ============

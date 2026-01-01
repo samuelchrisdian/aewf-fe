@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Outlet, Link, useLocation, useNavigate } from 'react-router-dom';
-import { LayoutDashboard, AlertTriangle, Menu, X, GraduationCap, LogOut, User, Users, Calendar, BarChart3, BookOpen, Server, Upload, Link2, MoreVertical } from 'lucide-react';
+import { LayoutDashboard, AlertTriangle, Menu, X, GraduationCap, LogOut, User, Users, Calendar, BarChart3, BookOpen, Server, Upload, Link2, MoreVertical, FileText } from 'lucide-react';
 import { useAuth } from '../features/auth/hooks';
 
 interface NavigationItem {
@@ -27,6 +27,7 @@ const Layout = (): React.ReactElement => {
         { name: 'Machines', href: '/machines', icon: Server, adminOnly: true },
         { name: 'Import', href: '/import', icon: Upload, adminOnly: true },
         { name: 'Mapping', href: '/mapping', icon: Link2, adminOnly: true },
+        { name: 'Reports', href: '/reports', icon: FileText },
     ];
 
 
