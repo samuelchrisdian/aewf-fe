@@ -2,6 +2,7 @@ import React, { useState, useMemo } from 'react';
 import { FileText, BarChart3, AlertTriangle, BookOpen, RefreshCw, Download } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
 import { apiClient } from '@/lib/api-client';
+import { notify } from '@/lib/notifications';
 import { ReportFilters, ExportButton, AttendanceReport, RiskReport, ClassSummaryReport } from './components';
 import {
     useAttendanceReport,
@@ -98,8 +99,9 @@ export const ReportsPage: React.FC = () => {
             });
             const filename = `attendance_report_${startDate}_${endDate}.xlsx`;
             downloadBlob(blob, filename);
-        } catch (error) {
-            console.error('Failed to export attendance:', error);
+            notify.success('Attendance report exported successfully');
+        } catch (error: any) {
+            notify.error(error.message || 'Failed to export attendance report');
         }
     };
 
@@ -108,8 +110,9 @@ export const ReportsPage: React.FC = () => {
         try {
             const blob = await exportStudents.mutateAsync({ class_id: classId || undefined });
             downloadBlob(blob, 'students_export.xlsx');
-        } catch (error) {
-            console.error('Failed to export students:', error);
+            notify.success('Students list exported successfully');
+        } catch (error: any) {
+            notify.error(error.message || 'Failed to export students list');
         }
     };
 
@@ -118,8 +121,9 @@ export const ReportsPage: React.FC = () => {
         try {
             const blob = await downloadTemplate.mutateAsync();
             downloadBlob(blob, 'master_data_template.xlsx');
-        } catch (error) {
-            console.error('Failed to download template:', error);
+            notify.success('Template downloaded successfully');
+        } catch (error: any) {
+            notify.error(error.message || 'Failed to download template');
         }
     };
 

@@ -1,8 +1,12 @@
 import React from 'react';
 import { useModelInfo, useModelPerformance, useRetrainModel } from '@/features/ml';
 import { Brain, RefreshCw, CheckCircle, AlertTriangle, Clock } from 'lucide-react';
+import { notify } from '@/lib/notifications';
 
 const ModelStatusCard: React.FC = () => {
+    // Separate concerns:
+    // - modelInfo: metadata statis (versi, algoritma, fitur, audit)
+    // - modelPerformance: metrik evaluasi (accuracy, recall, f1, auc)
     const { data: modelInfo, isLoading: infoLoading, error: infoError } = useModelInfo();
     const { data: modelPerformance, isLoading: perfLoading } = useModelPerformance();
     const { mutate: retrain, isPending: isRetraining } = useRetrainModel();
@@ -10,9 +14,26 @@ const ModelStatusCard: React.FC = () => {
     const isLoading = infoLoading || perfLoading;
     const hasError = infoError;
 
-    const handleRetrain = () => {
-        if (confirm('Apakah Anda yakin ingin melatih ulang model ML? Proses ini mungkin memakan waktu beberapa menit.')) {
-            retrain();
+    const handleRetrain = async () => {
+        const confirmed = await notify.confirm(
+            'Proses ini mungkin memakan waktu beberapa menit.',
+            {
+                title: 'Melatih Ulang Model ML',
+                confirmText: 'Mulai Training',
+                cancelText: 'Batal',
+                type: 'info'
+            }
+        );
+
+        if (confirmed) {
+            retrain(undefined, {
+                onSuccess: () => {
+                    notify.success('Model berhasil dilatih! Metrics telah diperbarui.');
+                },
+                onError: (error: any) => {
+                    notify.error(error.message || 'Gagal melatih model');
+                }
+            });
         }
     };
 
@@ -113,7 +134,7 @@ const ModelStatusCard: React.FC = () => {
                     <span className="text-gray-800">{modelInfo?.model_type || 'Logistic Regression + Decision Tree'}</span>
                 </div>
 
-                {/* Performance Metrics */}
+                {/* Performance Metrics - from modelPerformance */}
                 {modelPerformance && (
                     <div className="grid grid-cols-3 gap-2 mt-3">
                         <div className="bg-gray-50 rounded-lg p-3 text-center">
@@ -134,6 +155,13 @@ const ModelStatusCard: React.FC = () => {
                             </p>
                             <p className="text-xs text-gray-500">AUC-ROC</p>
                         </div>
+                    </div>
+                )}
+
+                {/* No metrics available message */}
+                {!modelPerformance && modelInfo?.status === 'not_trained' && (
+                    <div className="text-center text-sm text-gray-500 py-3">
+                        Model belum dilatih. Klik "Retrain" untuk melatih model.
                     </div>
                 )}
 

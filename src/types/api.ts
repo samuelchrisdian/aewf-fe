@@ -84,15 +84,17 @@ export interface StudentsListResponse {
 export interface CreateStudentRequest {
   nis: string;
   name: string;
-  class_id: number;
+  class_id: string;
   parent_phone?: string;
+  is_active?: boolean;
   email?: string;
 }
 
 export interface UpdateStudentRequest {
   name?: string;
-  class_id?: number;
+  class_id?: string;
   parent_phone?: string;
+  is_active?: boolean;
   email?: string;
 }
 

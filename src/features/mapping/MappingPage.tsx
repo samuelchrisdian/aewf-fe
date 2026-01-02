@@ -1,5 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import { Link2, RefreshCw, CheckSquare, AlertTriangle, AlertCircle } from 'lucide-react';
+import { notify } from '@/lib/notifications';
 import {
     MappingStats,
     UnmappedUsersList,
@@ -75,24 +76,27 @@ export const MappingPage: React.FC = () => {
     const handleRunAutoMapping = async () => {
         try {
             await processMapping.mutateAsync();
-        } catch (error) {
-            console.error('Auto-mapping failed:', error);
+            notify.success('Auto-mapping completed successfully');
+        } catch (error: any) {
+            notify.error(error.message || 'Auto-mapping failed');
         }
     };
 
     const handleVerify = async (id: number) => {
         try {
             await verifyMapping.mutateAsync({ mapping_id: id, status: 'verified' });
-        } catch (error) {
-            console.error('Verify failed:', error);
+            notify.success('Mapping verified successfully');
+        } catch (error: any) {
+            notify.error(error.message || 'Failed to verify mapping');
         }
     };
 
     const handleReject = async (id: number) => {
         try {
             await verifyMapping.mutateAsync({ mapping_id: id, status: 'rejected' });
-        } catch (error) {
-            console.error('Reject failed:', error);
+            notify.success('Mapping rejected');
+        } catch (error: any) {
+            notify.error(error.message || 'Failed to reject mapping');
         }
     };
 
@@ -105,8 +109,9 @@ export const MappingPage: React.FC = () => {
             await bulkVerify.mutateAsync({ mappings });
             setSelectedIds(new Set());
             setIsBulkModalOpen(false);
-        } catch (error) {
-            console.error('Bulk verify failed:', error);
+            notify.success(`${mappings.length} mappings verified successfully`);
+        } catch (error: any) {
+            notify.error(error.message || 'Bulk verify failed');
         }
     };
 
@@ -119,14 +124,15 @@ export const MappingPage: React.FC = () => {
             await bulkVerify.mutateAsync({ mappings });
             setSelectedIds(new Set());
             setIsBulkModalOpen(false);
-        } catch (error) {
-            console.error('Bulk reject failed:', error);
+            notify.success(`${mappings.length} mappings rejected`);
+        } catch (error: any) {
+            notify.error(error.message || 'Bulk reject failed');
         }
     };
 
     const handleManualMapping = (machineUserId: number, studentNis: string) => {
         // In a real app, this would call an API to create the mapping
-        console.log('Manual mapping:', machineUserId, '->', studentNis);
+        notify.success('Manual mapping created successfully');
         setManualMappingTarget(null);
     };
 

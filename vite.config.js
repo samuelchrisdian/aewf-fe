@@ -13,7 +13,7 @@ export default defineConfig({
   server: {
     proxy: {
       '/api': {
-        target: 'http://localhost:5001',
+        target: 'http://localhost:5001' || 'https://aewf-be.onrender.com',
         changeOrigin: true,
         secure: false,
       },

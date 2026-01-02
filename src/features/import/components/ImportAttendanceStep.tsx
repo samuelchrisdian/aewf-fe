@@ -3,6 +3,7 @@ import { FileUploader } from './FileUploader';
 import { useImportAttendance } from '../queries';
 import { useMachinesQuery } from '../../machines/queries';
 import { CheckCircle, AlertCircle, Server, Info } from 'lucide-react';
+import { notify } from '@/lib/notifications';
 
 interface ImportAttendanceStepProps {
     onBack: () => void;
@@ -22,26 +23,39 @@ export const ImportAttendanceStep: React.FC<ImportAttendanceStepProps> = ({ onBa
 
     const handleFileSelect = async (file: File) => {
         if (!selectedMachine) {
+            const errorMsg = 'Pilih mesin terlebih dahulu';
             setUploadResult({
                 success: false,
-                message: 'Pilih mesin terlebih dahulu',
+                message: errorMsg,
             });
+            notify.warning(errorMsg);
             return;
         }
 
         setUploadResult(null);
         try {
             const result = await importAttendance.mutateAsync({ file, machineCode: selectedMachine });
+            const success = result.success ?? true;
+            const message = result.message ?? 'Import berhasil!';
+
             setUploadResult({
-                success: result.success ?? true,
-                message: result.message ?? 'Import berhasil!',
+                success,
+                message,
                 recordsProcessed: result.records_processed,
             });
+
+            if (success) {
+                notify.success(message);
+            } else {
+                notify.warning(message);
+            }
         } catch (error: any) {
+            const errorMsg = error?.message || 'Terjadi kesalahan saat upload';
             setUploadResult({
                 success: false,
-                message: error?.message || 'Terjadi kesalahan saat upload',
+                message: errorMsg,
             });
+            notify.error(errorMsg);
         }
     };
 

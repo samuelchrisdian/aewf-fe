@@ -96,7 +96,7 @@ const Layout = (): React.ReactElement => {
                                 <User className="w-6 h-6 text-white" />
                             </div>
                             <div className="flex-1 min-w-0">
-                                <p className="text-sm font-medium text-gray-900 truncate">{user?.name}</p>
+                                <p className="text-sm font-medium text-gray-900 truncate">{user?.username}</p>
                                 <p className="text-xs text-gray-500 capitalize truncate">{user?.role}</p>
                             </div>
                         </div>

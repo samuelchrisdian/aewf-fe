@@ -1,7 +1,9 @@
 import React, { useState, useMemo, useCallback } from 'react';
-import { useDailyAttendanceQuery } from './queries';
+import { useDailyAttendanceQuery, useImportAttendance } from './queries';
 import { useClassesQuery } from '../classes/queries';
-import { Calendar, Download, Filter, CheckCircle, XCircle, Clock, FileText } from 'lucide-react';
+import { useMachinesQuery } from '../machines/queries';
+import { Calendar, Download, Filter, CheckCircle, XCircle, Clock, FileText, Upload, X, AlertCircle, CheckCircle2, AlertTriangle } from 'lucide-react';
+import { notify } from '@/lib/notifications';
 
 export const AttendancePage = (): React.ReactElement => {
   // Get current month in YYYY-MM format
@@ -9,12 +11,23 @@ export const AttendancePage = (): React.ReactElement => {
   const [selectedMonth, setSelectedMonth] = useState(currentMonth);
   const [classFilter, setClassFilter] = useState<string | undefined>();
 
+  // Import modal state
+  const [isImportModalOpen, setIsImportModalOpen] = useState(false);
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [selectedMachine, setSelectedMachine] = useState<string>('');
+
+  // Import result modal state
+  const [isResultModalOpen, setIsResultModalOpen] = useState(false);
+  const [importResult, setImportResult] = useState<any>(null);
+
   const { data: attendance = [], isLoading } = useDailyAttendanceQuery({
     month: selectedMonth,
     class_id: classFilter,
   });
 
   const { data: classesData } = useClassesQuery();
+  const { data: machinesData } = useMachinesQuery();
+  const importAttendance = useImportAttendance();
 
   // Safe date formatter
   const formatDate = useCallback((dateStr: string) => {
@@ -67,9 +80,23 @@ export const AttendancePage = (): React.ReactElement => {
     return [];
   }, [classesData]);
 
+  // Get machines list for import dropdown
+  const machinesList = useMemo(() => {
+    if (machinesData) {
+      const machines = Array.isArray(machinesData)
+        ? machinesData
+        : (machinesData?.data && Array.isArray(machinesData.data))
+          ? machinesData.data
+          : [];
+
+      return machines;
+    }
+    return [];
+  }, [machinesData]);
+
   const handleExport = () => {
     if (!attendance || attendance.length === 0) {
-      alert('No data to export');
+      notify.warning('No data to export');
       return;
     }
 
@@ -100,6 +127,61 @@ export const AttendancePage = (): React.ReactElement => {
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
+
+    notify.success('Attendance data exported successfully!');
+  };
+
+  const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (file) {
+      setSelectedFile(file);
+    }
+  };
+
+  const handleImport = async () => {
+    if (!selectedFile) {
+      notify.warning('Please select a file to import');
+      return;
+    }
+
+    if (!selectedMachine) {
+      notify.warning('Please select a machine');
+      return;
+    }
+
+    try {
+      const response = await importAttendance.mutateAsync({
+        file: selectedFile,
+        machine_code: selectedMachine,
+      });
+
+      // Store result and show result modal
+      setImportResult(response);
+      setIsImportModalOpen(false);
+      setIsResultModalOpen(true);
+
+      // Clear form
+      setSelectedFile(null);
+      setSelectedMachine('');
+
+      // Show appropriate notification based on errors
+      const data = response?.data || response;
+      const hasErrors = data?.errors && data.errors.length > 0;
+
+      if (hasErrors) {
+        notify.warning('Import completed with some errors. Please review the details.');
+      } else {
+        notify.success('Attendance imported successfully!');
+      }
+    } catch (error: any) {
+      notify.error(error?.response?.data?.message || 'Failed to import attendance');
+    }
+  };
+
+  const closeImportModal = () => {
+    setIsImportModalOpen(false);
+    setSelectedFile(null);
+    setSelectedMachine('');
   };
 
   const getStatusColor = (status: string) => {
@@ -170,13 +252,22 @@ export const AttendancePage = (): React.ReactElement => {
             Viewing attendance for <span className="font-semibold text-gray-700">{formatMonthDisplay(selectedMonth)}</span>
           </p>
         </div>
-        <button
-          onClick={handleExport}
-          className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition"
-        >
-          <Download className="w-4 h-4" />
-          Export
-        </button>
+        <div className="flex gap-3">
+          <button
+            onClick={() => setIsImportModalOpen(true)}
+            className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition"
+          >
+            <Upload className="w-4 h-4" />
+            Import
+          </button>
+          <button
+            onClick={handleExport}
+            className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition"
+          >
+            <Download className="w-4 h-4" />
+            Export
+          </button>
+        </div>
       </div>
 
       {/* Filters */}
@@ -312,6 +403,351 @@ export const AttendancePage = (): React.ReactElement => {
           </div>
         )}
       </div>
+
+      {/* Import Modal */}
+      {isImportModalOpen && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl shadow-2xl max-w-md w-full">
+            {/* Modal Header */}
+            <div className="flex items-center justify-between p-6 border-b border-gray-200">
+              <h3 className="text-xl font-bold text-gray-900 flex items-center gap-2">
+                <Upload className="w-5 h-5 text-green-600" />
+                Import Attendance
+              </h3>
+              <button
+                onClick={closeImportModal}
+                className="text-gray-400 hover:text-gray-600 transition"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Modal Body */}
+            <div className="p-6 space-y-5">
+              {/* Machine Selection */}
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-2">
+                  Select Machine <span className="text-red-500">*</span>
+                </label>
+                <select
+                  value={selectedMachine}
+                  onChange={(e) => setSelectedMachine(e.target.value)}
+                  className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 transition"
+                  required
+                >
+                  <option value="">-- Select Machine --</option>
+                  {machinesList.map((machine: any) => (
+                    <option key={machine.id} value={machine.machine_code}>
+                      {machine.machine_code}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {/* File Upload */}
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-2">
+                  Upload File <span className="text-red-500">*</span>
+                </label>
+                <div className="relative">
+                  <input
+                    type="file"
+                    onChange={handleFileSelect}
+                    accept=".csv,.xlsx,.xls"
+                    className="hidden"
+                    id="file-upload"
+                  />
+                  <label
+                    htmlFor="file-upload"
+                    className="flex items-center justify-center w-full px-4 py-8 border-2 border-dashed border-gray-300 rounded-lg cursor-pointer hover:border-green-500 hover:bg-green-50 transition group"
+                  >
+                    <div className="text-center">
+                      <Upload className="w-8 h-8 text-gray-400 group-hover:text-green-600 mx-auto mb-2" />
+                      <p className="text-sm text-gray-600 group-hover:text-green-700">
+                        {selectedFile ? (
+                          <span className="font-medium text-green-600">{selectedFile.name}</span>
+                        ) : (
+                          <>
+                            <span className="font-semibold">Click to upload</span> or drag and drop
+                          </>
+                        )}
+                      </p>
+                      <p className="text-xs text-gray-500 mt-1">CSV, XLSX, or XLS</p>
+                    </div>
+                  </label>
+                </div>
+              </div>
+
+              {/* Info Box */}
+              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                <p className="text-sm text-blue-800">
+                  <span className="font-semibold">Note:</span> Make sure the file format matches the expected template for attendance data.
+                </p>
+              </div>
+            </div>
+
+            {/* Modal Footer */}
+            <div className="flex gap-3 p-6 bg-gray-50 rounded-b-xl">
+              <button
+                onClick={closeImportModal}
+                className="flex-1 px-4 py-2.5 border-2 border-gray-300 text-gray-700 rounded-lg hover:bg-gray-100 transition font-medium"
+                disabled={importAttendance.isPending}
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleImport}
+                disabled={!selectedFile || !selectedMachine || importAttendance.isPending}
+                className="flex-1 px-4 py-2.5 bg-green-600 text-white rounded-lg hover:bg-green-700 transition font-medium disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+              >
+                {importAttendance.isPending ? (
+                  <>
+                    <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                    Importing...
+                  </>
+                ) : (
+                  <>
+                    <Upload className="w-4 h-4" />
+                    Import
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Import Result Modal */}
+      {isResultModalOpen && importResult && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-hidden flex flex-col">
+            {/* Modal Header */}
+            <div className="flex items-center justify-between p-6 border-b border-gray-200">
+              <h3 className="text-xl font-bold text-gray-900 flex items-center gap-2">
+                {importResult?.data?.errors?.length > 0 ? (
+                  <>
+                    <AlertTriangle className="w-5 h-5 text-amber-600" />
+                    Import Completed with Warnings
+                  </>
+                ) : (
+                  <>
+                    <CheckCircle2 className="w-5 h-5 text-green-600" />
+                    Import Successful
+                  </>
+                )}
+              </h3>
+              <button
+                onClick={() => setIsResultModalOpen(false)}
+                className="text-gray-400 hover:text-gray-600 transition"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Modal Body - Scrollable */}
+            <div className="p-6 space-y-5 overflow-y-auto flex-1">
+              {/* Summary Cards */}
+              <div className="grid grid-cols-3 gap-4">
+                <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+                  <div className="flex items-center gap-2 mb-1">
+                    <CheckCircle2 className="w-4 h-4 text-green-600" />
+                    <p className="text-xs font-semibold text-green-700 uppercase">Imported</p>
+                  </div>
+                  <p className="text-2xl font-bold text-green-700">
+                    {importResult?.data?.logs_imported || 0}
+                  </p>
+                  <p className="text-xs text-green-600 mt-1">Total logs</p>
+                </div>
+
+                <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                  <div className="flex items-center gap-2 mb-1">
+                    <FileText className="w-4 h-4 text-blue-600" />
+                    <p className="text-xs font-semibold text-blue-700 uppercase">Created</p>
+                  </div>
+                  <p className="text-2xl font-bold text-blue-700">
+                    {importResult?.data?.daily_records_created || 0}
+                  </p>
+                  <p className="text-xs text-blue-600 mt-1">Attendance records</p>
+                </div>
+
+                <div className="bg-amber-50 border border-amber-200 rounded-lg p-4">
+                  <div className="flex items-center gap-2 mb-1">
+                    <AlertCircle className="w-4 h-4 text-amber-600" />
+                    <p className="text-xs font-semibold text-amber-700 uppercase">Errors</p>
+                  </div>
+                  <p className="text-2xl font-bold text-amber-700">
+                    {importResult?.data?.errors?.length || 0}
+                  </p>
+                  <p className="text-xs text-amber-600 mt-1">Records skipped</p>
+                </div>
+              </div>
+
+              {/* Batch Info */}
+              <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm font-semibold text-gray-700">Batch ID</p>
+                    <p className="text-lg font-bold text-gray-900">#{importResult?.data?.batch_id}</p>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-sm font-semibold text-gray-700">Status</p>
+                    <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                      importResult?.data?.errors?.length > 0 
+                        ? 'bg-amber-100 text-amber-700 border border-amber-200' 
+                        : 'bg-green-100 text-green-700 border border-green-200'
+                    }`}>
+                      {importResult?.data?.errors?.length > 0 ? 'Partial Success' : 'Complete'}
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Error Details */}
+              {importResult?.data?.errors && importResult.data.errors.length > 0 && (
+                <div className="space-y-3">
+                  <div className="flex items-center gap-2">
+                    <AlertTriangle className="w-5 h-5 text-amber-600" />
+                    <h4 className="font-bold text-gray-900">
+                      Error Details ({importResult.data.errors.length} issues)
+                    </h4>
+                  </div>
+
+                  {/* Info Box */}
+                  <div className="bg-amber-50 border border-amber-200 rounded-lg p-4">
+                    <div className="flex items-start gap-3">
+                      <AlertCircle className="w-5 h-5 text-amber-600 flex-shrink-0 mt-0.5" />
+                      <div className="flex-1">
+                        <p className="text-sm font-semibold text-amber-900 mb-1">
+                          Missing Student Mappings
+                        </p>
+                        <p className="text-sm text-amber-800">
+                          The following machine users are not mapped to any student. Please map them in the
+                          <a href="/mapping" className="font-semibold underline ml-1 hover:text-amber-900">Mapping page</a>
+                          {' '}to include their attendance data.
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Error List */}
+                  <div className="bg-white border border-gray-200 rounded-lg overflow-hidden">
+                    <div className="max-h-64 overflow-y-auto">
+                      <table className="w-full text-sm">
+                        <thead className="bg-gray-50 sticky top-0">
+                          <tr>
+                            <th className="px-4 py-2 text-left text-xs font-semibold text-gray-600 uppercase">
+                              #
+                            </th>
+                            <th className="px-4 py-2 text-left text-xs font-semibold text-gray-600 uppercase">
+                              Machine User
+                            </th>
+                            <th className="px-4 py-2 text-left text-xs font-semibold text-gray-600 uppercase">
+                              Name
+                            </th>
+                            <th className="px-4 py-2 text-left text-xs font-semibold text-gray-600 uppercase">
+                              Date
+                            </th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-gray-200">
+                          {importResult.data.errors.map((error: string, index: number) => {
+                            // Parse error: "No student mapping for machine user ID 55 (Graciela) on 2025-12-01"
+                            const match = error.match(/machine user ID (\d+) \(([^)]+)\) on (\d{4}-\d{2}-\d{2})/);
+                            const userId = match ? match[1] : '-';
+                            const userName = match ? match[2] : '-';
+                            const date = match ? match[3] : '-';
+
+                            return (
+                              <tr key={index} className="hover:bg-gray-50">
+                                <td className="px-4 py-3 text-gray-500 font-medium">
+                                  {index + 1}
+                                </td>
+                                <td className="px-4 py-3 text-gray-900 font-mono">
+                                  ID {userId}
+                                </td>
+                                <td className="px-4 py-3">
+                                  <span className="inline-flex items-center gap-1.5 text-gray-700">
+                                    <div className="w-6 h-6 rounded-full bg-gray-200 flex items-center justify-center text-xs font-semibold text-gray-600">
+                                      {userName.substring(0, 2).toUpperCase()}
+                                    </div>
+                                    {userName}
+                                  </span>
+                                </td>
+                                <td className="px-4 py-3 text-gray-600 font-medium">
+                                  {new Date(date).toLocaleDateString('en-US', {
+                                    month: 'short',
+                                    day: 'numeric',
+                                    year: 'numeric'
+                                  })}
+                                </td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+
+                  {/* Action Suggestion */}
+                  <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                    <div className="flex items-start gap-3">
+                      <FileText className="w-5 h-5 text-blue-600 flex-shrink-0 mt-0.5" />
+                      <div className="flex-1">
+                        <p className="text-sm font-semibold text-blue-900 mb-1">
+                          Next Steps
+                        </p>
+                        <ol className="text-sm text-blue-800 space-y-1 list-decimal list-inside">
+                          <li>Go to the <a href="/mapping" className="font-semibold underline hover:text-blue-900">Mapping page</a></li>
+                          <li>Find unmapped machine users in the list</li>
+                          <li>Map each user to the correct student</li>
+                          <li>Re-import this attendance file to process skipped records</li>
+                        </ol>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Success Message (no errors) */}
+              {(!importResult?.data?.errors || importResult.data.errors.length === 0) && (
+                <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+                  <div className="flex items-center gap-3">
+                    <CheckCircle2 className="w-6 h-6 text-green-600" />
+                    <div>
+                      <p className="font-semibold text-green-900">Import completed successfully!</p>
+                      <p className="text-sm text-green-700 mt-1">
+                        All attendance logs have been processed and created as attendance records.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Modal Footer */}
+            <div className="flex gap-3 p-6 bg-gray-50 border-t border-gray-200">
+              {importResult?.data?.errors && importResult.data.errors.length > 0 && (
+                <a
+                  href="/mapping"
+                  className="flex-1 px-4 py-2.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition font-medium text-center"
+                >
+                  Go to Mapping
+                </a>
+              )}
+              <button
+                onClick={() => setIsResultModalOpen(false)}
+                className={`${
+                  importResult?.data?.errors && importResult.data.errors.length > 0 
+                    ? 'flex-1' 
+                    : 'w-full'
+                } px-4 py-2.5 border-2 border-gray-300 text-gray-700 rounded-lg hover:bg-gray-100 transition font-medium`}
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

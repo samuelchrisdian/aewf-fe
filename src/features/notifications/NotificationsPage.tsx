@@ -104,25 +104,34 @@ const NotificationsPage: React.FC = () => {
             </div>
 
             {/* Pagination */}
-            {notifications.length > 0 && (data?.total || 0) > 10 && (
-                <div className="flex items-center justify-center gap-2">
-                    <button
-                        onClick={() => setPage(p => Math.max(1, p - 1))}
-                        disabled={page === 1}
-                        className="px-3 py-1.5 text-sm font-medium text-gray-600 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
-                    >
-                        Sebelumnya
-                    </button>
-                    <span className="px-3 py-1.5 text-sm text-gray-600">
-                        Halaman {page}
-                    </span>
-                    <button
-                        onClick={() => setPage(p => p + 1)}
-                        disabled={notifications.length < 10}
-                        className="px-3 py-1.5 text-sm font-medium text-gray-600 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
-                    >
-                        Selanjutnya
-                    </button>
+            {!isLoading && !error && (data?.total || 0) > 0 && (
+                <div className="bg-white rounded-xl shadow-sm border border-gray-100 px-6 py-4">
+                    <div className="flex items-center justify-between">
+                        <div className="text-sm text-gray-700">
+                            Showing <span className="font-medium">{((page - 1) * (data?.per_page || 20)) + 1}</span> to{' '}
+                            <span className="font-medium">{Math.min(page * (data?.per_page || 20), data?.total || 0)}</span> of{' '}
+                            <span className="font-medium">{data?.total || 0}</span> notifications
+                        </div>
+                        <div className="flex gap-2">
+                            <button
+                                onClick={() => setPage(p => Math.max(1, p - 1))}
+                                disabled={page === 1}
+                                className="px-4 py-2 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition"
+                            >
+                                Previous
+                            </button>
+                            <div className="flex items-center px-4 py-2 text-sm text-gray-700">
+                                Page <span className="font-medium mx-1">{page}</span> of <span className="font-medium ml-1">{data?.total_pages || 1}</span>
+                            </div>
+                            <button
+                                onClick={() => setPage(p => p + 1)}
+                                disabled={page >= (data?.total_pages || 1)}
+                                className="px-4 py-2 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition"
+                            >
+                                Next
+                            </button>
+                        </div>
+                    </div>
                 </div>
             )}
         </div>

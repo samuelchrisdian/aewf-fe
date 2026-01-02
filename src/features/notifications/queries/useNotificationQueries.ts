@@ -47,7 +47,14 @@ export const NOTIFICATION_QUERY_KEYS = {
 export function useNotifications(params?: { is_read?: boolean; page?: number }) {
     return useQuery({
         queryKey: NOTIFICATION_QUERY_KEYS.list(params),
-        queryFn: async (): Promise<{ notifications: Notification[]; total: number; unread_count: number }> => {
+        queryFn: async (): Promise<{
+            notifications: Notification[];
+            total: number;
+            unread_count: number;
+            page: number;
+            per_page: number;
+            total_pages: number;
+        }> => {
             const queryParams = new URLSearchParams();
             if (params?.is_read !== undefined) {
                 queryParams.append('is_read', String(params.is_read));
@@ -57,15 +64,27 @@ export function useNotifications(params?: { is_read?: boolean; page?: number }) 
             }
 
             const url = `/api/v1/notifications${queryParams.toString() ? `?${queryParams.toString()}` : ''}`;
-            const response = await apiClient.get<NotificationsResponse>(url);
+            const response = await apiClient.get<any>(url);
 
-            const data = response as any;
-            const notifications = data.data || data.notifications || [];
+            // Handle nested data structure: response.data.notifications
+            const dataWrapper = response.data || response;
+            const notifications = dataWrapper.notifications || dataWrapper.data?.notifications || [];
+            const unreadCount = dataWrapper.unread_count ?? dataWrapper.data?.unread_count ?? 0;
+            const total = dataWrapper.total ?? dataWrapper.data?.total ?? notifications.length;
+
+            // Extract pagination data
+            const pagination = response.pagination || dataWrapper.pagination || {};
+            const page = pagination.page || params?.page || 1;
+            const perPage = pagination.per_page || 20;
+            const totalPages = pagination.pages || Math.ceil(total / perPage);
 
             return {
                 notifications: Array.isArray(notifications) ? notifications : [],
-                total: data.total || notifications.length,
-                unread_count: data.unread_count || notifications.filter((n: Notification) => !n.is_read).length,
+                total: total,
+                unread_count: unreadCount,
+                page: page,
+                per_page: perPage,
+                total_pages: totalPages,
             };
         },
         staleTime: 1000 * 30, // 30 seconds
@@ -81,14 +100,20 @@ export function useUnreadCount() {
     return useQuery({
         queryKey: NOTIFICATION_QUERY_KEYS.unreadCount,
         queryFn: async (): Promise<number> => {
-            const response = await apiClient.get<NotificationsResponse>('/api/v1/notifications?is_read=false');
-            const data = response as any;
+            const response = await apiClient.get<any>('/api/v1/notifications?is_read=false');
 
-            if (data.unread_count !== undefined) {
-                return data.unread_count;
+            // Handle nested data structure: response.data.unread_count
+            const dataWrapper = response.data || response;
+
+            if (dataWrapper.unread_count !== undefined) {
+                return dataWrapper.unread_count;
             }
 
-            const notifications = data.data || data.notifications || [];
+            if (dataWrapper.data?.unread_count !== undefined) {
+                return dataWrapper.data.unread_count;
+            }
+
+            const notifications = dataWrapper.notifications || dataWrapper.data?.notifications || [];
             return Array.isArray(notifications) ? notifications.length : 0;
         },
         staleTime: 1000 * 30, // 30 seconds

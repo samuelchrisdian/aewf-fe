@@ -49,14 +49,23 @@ class ApiClient {
       async (error: AxiosError) => {
         const originalRequest = error.config as AxiosRequestConfig & { _retry?: boolean };
 
-        // If 401 and not already retried, try to refresh token
-        if (error.response?.status === 401 && !originalRequest._retry) {
+        // Skip token refresh for login/auth endpoints
+        const isAuthEndpoint = originalRequest.url?.includes('/auth/login') ||
+                              originalRequest.url?.includes('/auth/refresh') ||
+                              originalRequest.url?.includes('/auth/register');
+
+        // If 401 and not already retried and NOT from auth endpoints, try to refresh token
+        if (error.response?.status === 401 && !originalRequest._retry && !isAuthEndpoint) {
           originalRequest._retry = true;
 
           try {
             const refreshToken = localStorage.getItem('refresh_token');
             if (!refreshToken) {
-              throw new Error('No refresh token');
+              // No refresh token available, clear auth and reject
+              localStorage.removeItem('access_token');
+              localStorage.removeItem('refresh_token');
+              localStorage.removeItem('user');
+              return Promise.reject(error);
             }
 
             const response = await axios.post<ApiResponse<{ access_token: string }>>(
@@ -73,15 +82,15 @@ class ApiClient {
             }
             return this.client(originalRequest);
           } catch (refreshError) {
-            // Refresh failed, clear auth and redirect to login
+            // Refresh failed, clear auth
             localStorage.removeItem('access_token');
             localStorage.removeItem('refresh_token');
             localStorage.removeItem('user');
-            window.location.href = '/login';
-            return Promise.reject(refreshError);
+            return Promise.reject(error); // Return original error, not refresh error
           }
         }
 
+        // For auth endpoints or other errors, reject immediately
         return Promise.reject(error);
       }
     );
@@ -89,13 +98,9 @@ class ApiClient {
 
   private handleError(error: unknown): never {
     if (axios.isAxiosError(error)) {
-      const axiosError = error as AxiosError<ApiResponse>;
-      const apiError: ApiError = {
-        message: axiosError.response?.data?.message || axiosError.message || 'An error occurred',
-        code: axiosError.response?.data?.code,
-        status: axiosError.response?.status,
-      };
-      throw apiError;
+      // Throw the original axios error to preserve response structure
+      // This allows calling code to access err.response.data.error.message
+      throw error;
     }
     throw error;
   }

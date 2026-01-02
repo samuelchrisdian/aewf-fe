@@ -1,7 +1,8 @@
 import React, { useState, useCallback, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Lock, User, AlertCircle, Loader, Eye, EyeOff, GraduationCap, BookOpen, Users, Shield } from 'lucide-react';
+import { Lock, User, Loader, Eye, EyeOff, GraduationCap, BookOpen, Users, Shield } from 'lucide-react';
 import { useAuth } from './hooks';
+import { notify } from '@/lib/notifications';
 
 const LoginPage = (): React.ReactElement => {
   const navigate = useNavigate();
@@ -9,8 +10,6 @@ const LoginPage = (): React.ReactElement => {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
-  const [validationError, setValidationError] = useState('');
-  const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
 
   // Redirect jika sudah login
@@ -25,28 +24,37 @@ const LoginPage = (): React.ReactElement => {
       if (e) {
         e.preventDefault();
       }
-      
-      setValidationError('');
-      setError('');
 
       // Validation
       if (!username || !password) {
-        setValidationError('Username dan password harus diisi');
+        const errorMsg = 'Username dan password harus diisi';
+        notify.warning(errorMsg);
         return;
       }
 
       if (username.length < 3) {
-        setValidationError('Username minimal 3 karakter');
+        const errorMsg = 'Username minimal 3 karakter';
+        notify.warning(errorMsg);
         return;
       }
 
       try {
         setIsLoading(true);
         await authLogin({ email: username, password }); // AuthProvider will map email to username
+        // Note: Success notification is handled in AuthProvider
         navigate('/', { replace: true });
-      } catch (err) {
-        const errorMessage = err instanceof Error ? err.message : 'Login gagal';
-        setError(errorMessage);
+      } catch (err: any) {
+        // Handle 401 Unauthorized - extract specific error message
+        let errorMessage = 'Login gagal';
+
+        if (err?.response?.status === 401) {
+          // Get error message from API response for 401
+          errorMessage = err?.response?.data?.error?.message || err?.response?.data?.message || 'Username atau password salah';
+        } else if (err instanceof Error) {
+          errorMessage = err.message;
+        }
+
+        notify.error(errorMessage);
       } finally {
         setIsLoading(false);
       }
@@ -58,9 +66,11 @@ const LoginPage = (): React.ReactElement => {
     if (type === 'teacher') {
       setUsername('teacher1');
       setPassword('password123');
+      notify.info('Demo credentials untuk Guru telah terisi');
     } else {
       setUsername('admin');
       setPassword('admin123');
+      notify.info('Demo credentials untuk Admin telah terisi');
     }
   }, []);
 
@@ -220,14 +230,6 @@ const LoginPage = (): React.ReactElement => {
                   </button>
                 </div>
               </div>
-
-              {/* Error Messages */}
-              {(error || validationError) && (
-                <div className="flex items-start gap-3 p-4 bg-red-50 border border-red-200 rounded-lg">
-                  <AlertCircle className="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5" />
-                  <p className="text-sm text-red-700">{error || validationError}</p>
-                </div>
-              )}
 
               {/* Submit Button */}
               <button
