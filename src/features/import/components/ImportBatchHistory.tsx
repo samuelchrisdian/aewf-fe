@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useBatchesQuery, useBatchQuery, useRollbackBatch, useDeleteBatch } from '../queries';
 import { FileSpreadsheet, Eye, RotateCcw, Trash2, X, AlertCircle, CheckCircle, Clock, XCircle } from 'lucide-react';
+import { notify } from '@/lib/notifications';
 import type { ImportBatch } from '@/types/api';
 
 export const ImportBatchHistory: React.FC = () => {
@@ -11,22 +12,46 @@ export const ImportBatchHistory: React.FC = () => {
     const deleteBatch = useDeleteBatch();
 
     const handleRollback = async (id: number) => {
-        if (!confirm('Yakin ingin rollback batch ini? Data yang diimport akan dihapus.')) return;
+        const confirmed = await notify.confirm(
+            'Data yang diimport akan dihapus. Apakah Anda yakin?',
+            {
+                title: 'Rollback Batch',
+                confirmText: 'Rollback',
+                cancelText: 'Cancel',
+                type: 'warning'
+            }
+        );
+
+        if (!confirmed) return;
+
         try {
             await rollbackBatch.mutateAsync(id);
+            notify.success('Batch rollback successfully');
             refetch();
-        } catch (e) {
-            // Error handled by mutation
+        } catch (error: any) {
+            notify.error(error.message || 'Failed to rollback batch');
         }
     };
 
     const handleDelete = async (id: number) => {
-        if (!confirm('Yakin ingin menghapus batch ini?')) return;
+        const confirmed = await notify.confirm(
+            'Apakah Anda yakin ingin menghapus batch ini?',
+            {
+                title: 'Delete Batch',
+                confirmText: 'Delete',
+                cancelText: 'Cancel',
+                type: 'danger'
+            }
+        );
+
+        if (!confirmed) return;
+
         try {
             await deleteBatch.mutateAsync(id);
+            notify.success('Batch deleted successfully');
             refetch();
-        } catch (e) {
-            // Error handled by mutation
+        } catch (error: any) {
+            notify.error(error.message || 'Failed to delete batch');
         }
     };
 

@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { FileUploader } from './FileUploader';
 import { useImportMaster } from '../queries';
 import { Download, CheckCircle, AlertCircle } from 'lucide-react';
+import { notify } from '@/lib/notifications';
 
 interface ImportMasterStepProps {
     onNext: () => void;
@@ -20,16 +21,27 @@ export const ImportMasterStep: React.FC<ImportMasterStepProps> = ({ onNext }) =>
         setUploadResult(null);
         try {
             const result = await importMaster.mutateAsync(file);
+            const success = result.success ?? true;
+            const message = result.message ?? 'Import berhasil!';
+
             setUploadResult({
-                success: result.success ?? true,
-                message: result.message ?? 'Import berhasil!',
+                success,
+                message,
                 recordsProcessed: result.records_processed,
             });
+
+            if (success) {
+                notify.success(message);
+            } else {
+                notify.warning(message);
+            }
         } catch (error: any) {
+            const errorMsg = error?.message || 'Terjadi kesalahan saat upload';
             setUploadResult({
                 success: false,
-                message: error?.message || 'Terjadi kesalahan saat upload',
+                message: errorMsg,
             });
+            notify.error(errorMsg);
         }
     };
 

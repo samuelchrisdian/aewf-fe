@@ -1,6 +1,7 @@
 import React, { createContext, useReducer, useEffect, useCallback, ReactNode } from 'react';
 import { User, AuthState, LoginRequest } from '../models';
 import { useLogin as useLoginMutation, useLogout as useLogoutMutation, useCurrentUser } from '../api';
+import { notify } from '@/lib/notifications';
 
 export interface AuthContextType extends AuthState {
   login: (credentials: LoginRequest) => Promise<void>;
@@ -123,9 +124,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           token: response.access_token,
         },
       });
-    } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : 'Login failed';
+
+      notify.success(`Welcome back, ${response.user.username || 'User'}!`);
+    } catch (err: any) {
+      // Handle 401 Unauthorized - extract specific error message
+      let errorMessage = 'Login failed';
+
+      if (err?.response?.status === 401) {
+        // Get error message from API response for 401
+        errorMessage = err?.response?.data?.error?.message || err?.response?.data?.message || 'Invalid username or password';
+      } else if (err instanceof Error) {
+        errorMessage = err.message;
+      }
+
       dispatch({ type: 'LOGIN_ERROR', payload: errorMessage });
+      notify.error(errorMessage);
       throw err;
     }
   }, [loginMutation]);
@@ -133,6 +146,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const logout = useCallback(async () => {
     try {
       await logoutMutation.mutateAsync(undefined as any);
+      notify.success('Logged out successfully');
     } catch (err: unknown) {
       console.error('Logout error:', err);
     }

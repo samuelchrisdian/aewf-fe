@@ -7,6 +7,7 @@ import {
   useDeleteMachine,
 } from './queries';
 import { Plus, Edit2, Trash2, Server, MapPin, Circle, Users, X } from 'lucide-react';
+import { notify } from '@/lib/notifications';
 
 export const MachinesPage = (): React.ReactElement => {
   const [statusFilter, setStatusFilter] = useState<string>('');
@@ -57,27 +58,37 @@ export const MachinesPage = (): React.ReactElement => {
           id: editingMachine.id,
           data: { location: formData.location, status: formData.status },
         });
-        alert('Machine updated successfully!');
+        notify.success('Machine updated successfully!');
       } else {
         await registerMachine.mutateAsync({
           machine_code: formData.machine_code,
           location: formData.location,
         });
-        alert('Machine registered successfully!');
+        notify.success('Machine registered successfully!');
       }
       handleCloseModal();
     } catch (error: any) {
-      alert('Error: ' + (error.message || 'Failed to save machine'));
+      notify.error(error.message || 'Failed to save machine');
     }
   };
 
   const handleDelete = async (id: number, code: string) => {
-    if (window.confirm(`Delete machine ${code}?`)) {
+    const confirmed = await notify.confirm(
+      `Are you sure you want to delete machine ${code}?`,
+      {
+        title: 'Delete Machine',
+        confirmText: 'Delete',
+        cancelText: 'Cancel',
+        type: 'danger'
+      }
+    );
+
+    if (confirmed) {
       try {
         await deleteMachine.mutateAsync(id);
-        alert('Machine deleted successfully!');
+        notify.success('Machine deleted successfully!');
       } catch (error) {
-        alert('Failed to delete machine');
+        notify.error('Failed to delete machine');
       }
     }
   };

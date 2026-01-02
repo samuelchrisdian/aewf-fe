@@ -1,8 +1,9 @@
 import React, { useState, useMemo } from 'react';
 import { Link } from 'react-router-dom';
-import { useStudentsQuery, useDeleteStudent, useCreateStudent } from './queries';
+import { useStudentsQuery, useDeleteStudent, useCreateStudent, useUpdateStudent } from './queries';
 import { useClassesQuery } from '../classes/queries';
 import { Search, Plus, Edit2, Trash2, Eye, X } from 'lucide-react';
+import { notify } from '@/lib/notifications';
 import type { StudentsListParams } from '@/types/api';
 
 export const StudentsPage = (): React.ReactElement => {
@@ -10,11 +11,14 @@ export const StudentsPage = (): React.ReactElement => {
   const [search, setSearch] = useState('');
   const [classFilter, setClassFilter] = useState<string | undefined>();
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [editingStudent, setEditingStudent] = useState<any>(null);
   const [formData, setFormData] = useState({
     nis: '',
     name: '',
     class_id: '',
     parent_phone: '',
+    is_active: true,
   });
 
   const queryParams: StudentsListParams = {
@@ -65,31 +69,81 @@ export const StudentsPage = (): React.ReactElement => {
 
   const deleteStudent = useDeleteStudent();
   const createStudent = useCreateStudent();
+  const updateStudent = useUpdateStudent();
 
   const handleCreateSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      await createStudent.mutateAsync({
+      const payload: any = {
         nis: formData.nis,
         name: formData.name,
-        class_id: parseInt(formData.class_id),
-        parent_phone: formData.parent_phone || undefined,
-      });
-      alert('Student created successfully!');
+        class_id: formData.class_id,
+        is_active: formData.is_active,
+      };
+
+      if (formData.parent_phone) {
+        payload.parent_phone = formData.parent_phone;
+      }
+
+      await createStudent.mutateAsync(payload);
+      notify.success('Student created successfully!');
       setIsCreateModalOpen(false);
-      setFormData({ nis: '', name: '', class_id: '', parent_phone: '' });
+      setFormData({ nis: '', name: '', class_id: '', parent_phone: '', is_active: true });
     } catch (error: any) {
-      alert('Error: ' + (error.message || 'Failed to create student'));
+      notify.error(error.message || 'Failed to create student');
+    }
+  };
+
+  const handleEdit = (student: any) => {
+    setEditingStudent(student);
+    setFormData({
+      nis: student.nis,
+      name: student.name,
+      class_id: student.class_id,
+      parent_phone: student.parent_phone || '',
+      is_active: student.is_active ?? true,
+    });
+    setIsEditModalOpen(true);
+  };
+
+  const handleEditSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    try {
+      await updateStudent.mutateAsync({
+        nis: formData.nis,
+        data: {
+          name: formData.name,
+          class_id: formData.class_id,
+          parent_phone: formData.parent_phone || undefined,
+          is_active: formData.is_active,
+        }
+      });
+      notify.success('Student updated successfully!');
+      setIsEditModalOpen(false);
+      setEditingStudent(null);
+      setFormData({ nis: '', name: '', class_id: '', parent_phone: '', is_active: true });
+    } catch (error: any) {
+      notify.error(error.message || 'Failed to update student');
     }
   };
 
   const handleDelete = async (nis: string, name: string) => {
-    if (window.confirm(`Hapus siswa ${name}?`)) {
+    const confirmed = await notify.confirm(
+      `Are you sure you want to delete student ${name}?`,
+      {
+        title: 'Delete Student',
+        confirmText: 'Delete',
+        cancelText: 'Cancel',
+        type: 'danger'
+      }
+    );
+
+    if (confirmed) {
       try {
         await deleteStudent.mutateAsync(nis);
-        alert('Siswa berhasil dihapus');
+        notify.success('Student deleted successfully');
       } catch (error) {
-        alert('Gagal menghapus siswa');
+        notify.error('Failed to delete student');
       }
     }
   };
@@ -237,7 +291,7 @@ export const StudentsPage = (): React.ReactElement => {
                         <Eye className="w-4 h-4" />
                       </Link>
                       <button
-                        onClick={() => alert('Edit feature coming soon! For now, delete and recreate student.')}
+                        onClick={() => handleEdit(student)}
                         className="text-green-600 hover:text-green-900"
                         title="Edit Student"
                       >
@@ -305,11 +359,15 @@ export const StudentsPage = (): React.ReactElement => {
                 <input
                   type="text"
                   value={formData.nis}
-                  onChange={(e) => setFormData({ ...formData, nis: e.target.value })}
+                  onChange={(e) => {
+                    const value = e.target.value.replace(/\D/g, ''); // Only allow digits
+                    setFormData({ ...formData, nis: value });
+                  }}
                   placeholder="e.g., 12345"
                   required
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                 />
+                <p className="text-xs text-gray-500 mt-1">Numbers only</p>
               </div>
 
               <div>
@@ -325,16 +383,20 @@ export const StudentsPage = (): React.ReactElement => {
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Class ID *</label>
-                <input
-                  type="number"
+                <label className="block text-sm font-medium text-gray-700 mb-2">Class *</label>
+                <select
                   value={formData.class_id}
                   onChange={(e) => setFormData({ ...formData, class_id: e.target.value })}
-                  placeholder="e.g., 1"
                   required
-                  min="1"
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                />
+                >
+                  <option value="">-- Select Class --</option>
+                  {uniqueClasses.map((cls) => (
+                    <option key={cls.id} value={cls.id}>
+                      {cls.name}
+                    </option>
+                  ))}
+                </select>
               </div>
 
               <div>
@@ -344,10 +406,27 @@ export const StudentsPage = (): React.ReactElement => {
                 <input
                   type="text"
                   value={formData.parent_phone}
-                  onChange={(e) => setFormData({ ...formData, parent_phone: e.target.value })}
+                  onChange={(e) => {
+                    const value = e.target.value.replace(/\D/g, ''); // Only allow digits
+                    setFormData({ ...formData, parent_phone: value });
+                  }}
                   placeholder="e.g., 08123456789"
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                 />
+                <p className="text-xs text-gray-500 mt-1">Numbers only</p>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <input
+                  type="checkbox"
+                  id="is_active_create"
+                  checked={formData.is_active}
+                  onChange={(e) => setFormData({ ...formData, is_active: e.target.checked })}
+                  className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                />
+                <label htmlFor="is_active_create" className="text-sm font-medium text-gray-700">
+                  Active Student
+                </label>
               </div>
 
               <div className="flex gap-3 pt-4">
@@ -364,6 +443,117 @@ export const StudentsPage = (): React.ReactElement => {
                   className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition disabled:opacity-50"
                 >
                   {createStudent.isPending ? 'Creating...' : 'Create Student'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Edit Student Modal */}
+      {isEditModalOpen && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg shadow-xl max-w-md w-full">
+            <div className="flex items-center justify-between p-6 border-b">
+              <h2 className="text-xl font-bold text-gray-900">Edit Student</h2>
+              <button
+                onClick={() => {
+                  setIsEditModalOpen(false);
+                  setEditingStudent(null);
+                }}
+                className="p-1 hover:bg-gray-100 rounded-lg transition"
+              >
+                <X className="w-5 h-5 text-gray-500" />
+              </button>
+            </div>
+
+            <form onSubmit={handleEditSubmit} className="p-6 space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">NIS *</label>
+                <input
+                  type="text"
+                  value={formData.nis}
+                  disabled
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-gray-100 text-gray-500 cursor-not-allowed"
+                />
+                <p className="text-xs text-gray-500 mt-1">NIS cannot be changed</p>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Full Name *</label>
+                <input
+                  type="text"
+                  value={formData.name}
+                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                  placeholder="e.g., John Doe"
+                  required
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Class *</label>
+                <select
+                  value={formData.class_id}
+                  onChange={(e) => setFormData({ ...formData, class_id: e.target.value })}
+                  required
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                >
+                  <option value="">-- Select Class --</option>
+                  {uniqueClasses.map((cls) => (
+                    <option key={cls.id} value={cls.id}>
+                      {cls.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Parent Phone
+                </label>
+                <input
+                  type="text"
+                  value={formData.parent_phone}
+                  onChange={(e) => {
+                    const value = e.target.value.replace(/\D/g, ''); // Only allow digits
+                    setFormData({ ...formData, parent_phone: value });
+                  }}
+                  placeholder="e.g., 08123456789"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                />
+                <p className="text-xs text-gray-500 mt-1">Numbers only</p>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <input
+                  type="checkbox"
+                  id="is_active_edit"
+                  checked={formData.is_active}
+                  onChange={(e) => setFormData({ ...formData, is_active: e.target.checked })}
+                  className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                />
+                <label htmlFor="is_active_edit" className="text-sm font-medium text-gray-700">
+                  Active Student
+                </label>
+              </div>
+
+              <div className="flex gap-3 pt-4">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsEditModalOpen(false);
+                    setEditingStudent(null);
+                  }}
+                  className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="flex-1 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition disabled:opacity-50"
+                >
+                  Update Student
                 </button>
               </div>
             </form>

@@ -56,7 +56,7 @@ export function useCreateClass() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async (data: CreateClassRequest) => {
+    mutationFn: async (data: { class_id: string; class_name: string; wali_kelas_id: string }) => {
       const response = await apiClient.post<any>('/api/v1/classes', data);
       return response.data || response;
     },
@@ -71,13 +71,12 @@ export function useUpdateClass() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async ({ id, data }: { id: number; data: Partial<CreateClassRequest> }) => {
-      const response = await apiClient.put<any>(`/api/v1/classes/${id}`, data);
+    mutationFn: async ({ class_id, data }: { class_id: string; data: { wali_kelas_id: string } }) => {
+      const response = await apiClient.put<any>(`/api/v1/classes/${class_id}`, data);
       return response.data || response;
     },
-    onSuccess: (_, variables) => {
+    onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: CLASSES_QUERY_KEY });
-      queryClient.invalidateQueries({ queryKey: CLASS_QUERY_KEY(variables.id) });
     },
   });
 }
@@ -87,13 +86,12 @@ export function useDeleteClass() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async (id: number) => {
-      const response = await apiClient.delete<any>(`/api/v1/classes/${id}`);
+    mutationFn: async (class_id: string) => {
+      const response = await apiClient.delete<any>(`/api/v1/classes/${class_id}`);
       return response.data || response;
     },
-    onSuccess: (_, id) => {
+    onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: CLASSES_QUERY_KEY });
-      queryClient.invalidateQueries({ queryKey: CLASS_QUERY_KEY(id) });
     },
   });
 }

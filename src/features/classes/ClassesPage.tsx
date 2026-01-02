@@ -1,9 +1,11 @@
 import React, { useState } from 'react';
-import { useClassesQuery, useCreateClass, useUpdateClass, useDeleteClass } from './queries';
+import { useClassesQuery, useCreateClass, useUpdateClass, useDeleteClass, useTeachersQuery } from './queries';
 import { Plus, Edit2, Trash2, Users, BookOpen, X } from 'lucide-react';
+import { notify } from '@/lib/notifications';
 
 export const ClassesPage = (): React.ReactElement => {
   const { data: classesData, isLoading } = useClassesQuery();
+  const { data: teachers, isLoading: isLoadingTeachers } = useTeachersQuery();
   const createClass = useCreateClass();
   const updateClass = useUpdateClass();
   const deleteClass = useDeleteClass();
@@ -18,24 +20,33 @@ export const ClassesPage = (): React.ReactElement => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingClass, setEditingClass] = useState<any>(null);
   const [formData, setFormData] = useState({
-    name: '',
     grade: '',
     section: '',
-    teacher_id: '',
+    wali_kelas_id: '',
   });
+
+  // Auto-generate class_name when grade or section changes
+  const generatedClassName = formData.grade && formData.section
+    ? `${formData.grade}${formData.section}`
+    : '';
+
+  const generatedClassId = formData.grade && formData.section
+    ? `CLASS_${formData.grade}${formData.section}`
+    : '';
 
   const handleOpenModal = (cls?: any) => {
     if (cls) {
       setEditingClass(cls);
+      // Extract grade and section from class_name (e.g., "9A" -> grade: "9", section: "A")
+      const match = cls.class_name?.match(/^(\d+)([A-Z])$/);
       setFormData({
-        name: cls.name || '',
-        grade: cls.grade?.toString() || '',
-        section: cls.section || '',
-        teacher_id: cls.teacher_id?.toString() || '',
+        grade: match ? match[1] : '',
+        section: match ? match[2] : '',
+        wali_kelas_id: cls.wali_kelas_id || '',
       });
     } else {
       setEditingClass(null);
-      setFormData({ name: '', grade: '', section: '', teacher_id: '' });
+      setFormData({ grade: '', section: '', wali_kelas_id: '' });
     }
     setIsModalOpen(true);
   };
@@ -43,40 +54,58 @@ export const ClassesPage = (): React.ReactElement => {
   const handleCloseModal = () => {
     setIsModalOpen(false);
     setEditingClass(null);
-    setFormData({ name: '', grade: '', section: '', teacher_id: '' });
+    setFormData({ grade: '', section: '', wali_kelas_id: '' });
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    const payload = {
-      name: formData.name,
-      grade: formData.grade ? parseInt(formData.grade) : undefined,
-      section: formData.section || undefined,
-      teacher_id: formData.teacher_id ? parseInt(formData.teacher_id) : undefined,
-    };
+    if (!formData.grade || !formData.section || !formData.wali_kelas_id) {
+      notify.warning('Please fill all required fields');
+      return;
+    }
 
     try {
       if (editingClass) {
-        await updateClass.mutateAsync({ id: editingClass.id, data: payload });
-        alert('Class updated successfully!');
+        // For update, only send wali_kelas_id
+        await updateClass.mutateAsync({
+          class_id: editingClass.class_id,
+          data: { wali_kelas_id: formData.wali_kelas_id }
+        });
+        notify.success('Class updated successfully!');
       } else {
+        // For create, send full payload
+        const payload = {
+          class_id: generatedClassId,
+          class_name: generatedClassName,
+          wali_kelas_id: formData.wali_kelas_id,
+        };
         await createClass.mutateAsync(payload);
-        alert('Class created successfully!');
+        notify.success('Class created successfully!');
       }
       handleCloseModal();
     } catch (error: any) {
-      alert('Error: ' + (error.message || 'Failed to save class'));
+      notify.error(error.message || 'Failed to save class');
     }
   };
 
-  const handleDelete = async (id: number, name: string) => {
-    if (window.confirm(`Delete class ${name}?`)) {
+  const handleDelete = async (class_id: string, class_name: string) => {
+    const confirmed = await notify.confirm(
+      `Are you sure you want to delete class ${class_name}?`,
+      {
+        title: 'Delete Class',
+        confirmText: 'Delete',
+        cancelText: 'Cancel',
+        type: 'danger'
+      }
+    );
+
+    if (confirmed) {
       try {
-        await deleteClass.mutateAsync(id);
-        alert('Class deleted successfully!');
+        await deleteClass.mutateAsync(class_id);
+        notify.success('Class deleted successfully!');
       } catch (error) {
-        alert('Failed to delete class');
+        notify.error('Failed to delete class');
       }
     }
   };
@@ -132,7 +161,7 @@ export const ClassesPage = (): React.ReactElement => {
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {classes.map((cls) => (
           <div
-            key={cls.id}
+            key={cls.class_id}
             className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 hover:shadow-md transition"
           >
             <div className="flex items-start justify-between mb-4">
@@ -141,10 +170,8 @@ export const ClassesPage = (): React.ReactElement => {
                   <BookOpen className="w-6 h-6 text-blue-600" />
                 </div>
                 <div>
-                  <h3 className="text-lg font-bold text-gray-900">{cls.name}</h3>
-                  {cls.grade && cls.section && (
-                    <p className="text-sm text-gray-500">Grade {cls.grade} - Section {cls.section}</p>
-                  )}
+                  <h3 className="text-lg font-bold text-gray-900">{cls.class_name}</h3>
+                  <p className="text-sm text-gray-500">{cls.class_id}</p>
                 </div>
               </div>
               <div className="flex gap-2">
@@ -155,7 +182,7 @@ export const ClassesPage = (): React.ReactElement => {
                   <Edit2 className="w-4 h-4" />
                 </button>
                 <button
-                  onClick={() => handleDelete(cls.id, cls.name)}
+                  onClick={() => handleDelete(cls.class_id, cls.class_name)}
                   className="p-1.5 text-red-600 hover:bg-red-50 rounded-lg transition"
                   disabled={deleteClass.isPending}
                 >
@@ -170,15 +197,9 @@ export const ClassesPage = (): React.ReactElement => {
                 <span>{cls.student_count || 0} Students</span>
               </div>
 
-              {cls.teacher_name && (
+              {cls.wali_kelas_name && (
                 <div className="text-sm text-gray-600">
-                  <span className="font-medium">Teacher:</span> {cls.teacher_name}
-                </div>
-              )}
-
-              {cls.created_at && (
-                <div className="text-xs text-gray-400">
-                  Created: {new Date(cls.created_at).toLocaleDateString()}
+                  <span className="font-medium">Wali Kelas:</span> {cls.wali_kelas_name}
                 </div>
               )}
             </div>
@@ -210,58 +231,71 @@ export const ClassesPage = (): React.ReactElement => {
             </div>
 
             <form onSubmit={handleSubmit} className="p-6 space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Class Name *
-                </label>
-                <input
-                  type="text"
-                  value={formData.name}
-                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                  placeholder="e.g., 10-A"
-                  required
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                />
-              </div>
-
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Grade</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Grade *
+                  </label>
                   <input
                     type="number"
                     value={formData.grade}
                     onChange={(e) => setFormData({ ...formData, grade: e.target.value })}
-                    placeholder="10"
-                    min="1"
+                    placeholder="9"
+                    min="7"
                     max="12"
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    required
+                    disabled={!!editingClass}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 disabled:bg-gray-100"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Section</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Section *
+                  </label>
                   <input
                     type="text"
                     value={formData.section}
-                    onChange={(e) => setFormData({ ...formData, section: e.target.value })}
+                    onChange={(e) => setFormData({ ...formData, section: e.target.value.toUpperCase() })}
                     placeholder="A"
-                    maxLength={2}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    maxLength={1}
+                    required
+                    disabled={!!editingClass}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 disabled:bg-gray-100"
                   />
                 </div>
               </div>
 
+              {/* Auto-generated class name display */}
+              {generatedClassName && (
+                <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
+                  <p className="text-sm text-gray-600">Class Name:</p>
+                  <p className="text-lg font-bold text-blue-600">{generatedClassName}</p>
+                  <p className="text-xs text-gray-500 mt-1">Class ID: {generatedClassId}</p>
+                </div>
+              )}
+
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Teacher ID (Optional)
+                  Wali Kelas *
                 </label>
-                <input
-                  type="number"
-                  value={formData.teacher_id}
-                  onChange={(e) => setFormData({ ...formData, teacher_id: e.target.value })}
-                  placeholder="Enter teacher ID"
+                <select
+                  value={formData.wali_kelas_id}
+                  onChange={(e) => setFormData({ ...formData, wali_kelas_id: e.target.value })}
+                  required
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                />
+                  disabled={isLoadingTeachers}
+                >
+                  <option value="">Select Wali Kelas</option>
+                  {teachers?.map((teacher) => (
+                    <option key={teacher.teacher_id} value={teacher.teacher_id}>
+                      {teacher.name}
+                    </option>
+                  ))}
+                </select>
+                {isLoadingTeachers && (
+                  <p className="text-xs text-gray-500 mt-1">Loading teachers...</p>
+                )}
               </div>
 
               <div className="flex gap-3 pt-4">
