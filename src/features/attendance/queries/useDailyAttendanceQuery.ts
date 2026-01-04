@@ -5,7 +5,9 @@ export const DAILY_ATTENDANCE_QUERY_KEY = ['attendance', 'daily'] as const;
 
 // Frontend params (what the page will use)
 export interface AttendanceQueryParams {
-  month?: string;       // YYYY-MM format from the UI
+  month?: string;       // YYYY-MM format from the UI (legacy)
+  start_date?: string;  // YYYY-MM-DD format
+  end_date?: string;    // YYYY-MM-DD format
   class_id?: string;
   status?: string;
 }
@@ -43,15 +45,15 @@ export function useDailyAttendanceQuery(params?: AttendanceQueryParams) {
     queryKey: [...DAILY_ATTENDANCE_QUERY_KEY, params],
     queryFn: async (): Promise<AttendanceRecord[]> => {
       try {
-        // Build API params - try multiple formats
+        // Build API params
         const apiParams: Record<string, string> = {};
 
-        if (params?.month) {
-          // Backend might accept "month" as YYYY-MM or need date range
-          // Try sending both formats for compatibility
-          apiParams.month = params.month;
-
-          // Calculate date range respecting local time to avoid timezone shifts
+        // Use start_date and end_date directly if provided
+        if (params?.start_date && params?.end_date) {
+          apiParams.start_date = params.start_date;
+          apiParams.end_date = params.end_date;
+        } else if (params?.month) {
+          // Fallback to month-based calculation for backward compatibility
           const [yearStr, monthStr] = params.month.split('-');
           const year = parseInt(yearStr);
           const month = parseInt(monthStr); // 1-12
@@ -80,7 +82,8 @@ export function useDailyAttendanceQuery(params?: AttendanceQueryParams) {
           apiParams.status = params.status;
         }
 
-        // console.log('Attendance API params:', apiParams);
+        // Disable pagination to get all records
+        apiParams.paginate = 'false';
 
         const response = await apiClient.get<any>('/api/v1/attendance/daily', { params: apiParams });
 

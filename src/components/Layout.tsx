@@ -29,7 +29,7 @@ const Layout = (): React.ReactElement => {
         { name: 'Import', href: '/import', icon: Upload, adminOnly: true },
         { name: 'Mapping', href: '/mapping', icon: Link2, adminOnly: true },
         { name: 'Reports', href: '/reports', icon: FileText },
-        { name: 'Notifications', href: '/notifications', icon: Bell },
+        // { name: 'Notifications', href: '/notifications', icon: Bell },
     ];
 
 

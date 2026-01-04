@@ -1,15 +1,233 @@
 import React, { useState, useMemo, useCallback } from 'react';
-import { useDailyAttendanceQuery, useImportAttendance } from './queries';
+import { useDailyAttendanceQuery, useImportAttendance, useManualAttendance, useUpdateAttendance } from './queries';
 import { useClassesQuery } from '../classes/queries';
 import { useMachinesQuery } from '../machines/queries';
-import { Calendar, Download, Filter, CheckCircle, XCircle, Clock, FileText, Upload, X, AlertCircle, CheckCircle2, AlertTriangle } from 'lucide-react';
+import { Calendar, Download, Filter, CheckCircle, XCircle, Clock, FileText, Upload, X, AlertCircle, CheckCircle2, AlertTriangle, Plus, Edit2, Search, ChevronLeft, ChevronRight } from 'lucide-react';
 import { notify } from '@/lib/notifications';
 
+// Manual Attendance Modal Component
+interface ManualAttendanceModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  onSubmit: (data: { student_nis: string; date: string; status: string; notes: string }) => void;
+  isLoading: boolean;
+}
+
+const ManualAttendanceModal: React.FC<ManualAttendanceModalProps> = ({ isOpen, onClose, onSubmit, isLoading }) => {
+  const [formData, setFormData] = useState({
+    student_nis: '',
+    date: new Date().toISOString().split('T')[0],
+    status: 'present',
+    notes: '',
+  });
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    onSubmit(formData);
+  };
+
+  const resetForm = () => {
+    setFormData({
+      student_nis: '',
+      date: new Date().toISOString().split('T')[0],
+      status: 'present',
+      notes: '',
+    });
+  };
+
+  if (!isOpen) return null;
+
+  return (
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+      <div className="bg-white rounded-lg shadow-xl w-full max-w-md mx-4">
+        <div className="flex items-center justify-between p-4 border-b border-gray-200">
+          <h3 className="text-lg font-semibold text-gray-900">Add Manual Attendance</h3>
+          <button onClick={() => { onClose(); resetForm(); }} className="text-gray-400 hover:text-gray-600">
+            <X className="w-5 h-5" />
+          </button>
+        </div>
+        <form onSubmit={handleSubmit} className="p-4 space-y-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">NIS (Student ID)</label>
+            <input
+              type="text"
+              value={formData.student_nis}
+              onChange={(e) => setFormData({ ...formData, student_nis: e.target.value })}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              placeholder="Enter student NIS"
+              required
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Date</label>
+            <input
+              type="date"
+              value={formData.date}
+              onChange={(e) => setFormData({ ...formData, date: e.target.value })}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              required
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Status</label>
+            <select
+              value={formData.status}
+              onChange={(e) => setFormData({ ...formData, status: e.target.value })}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+            >
+              <option value="present">Present</option>
+              <option value="absent">Absent</option>
+              <option value="late">Late</option>
+              <option value="sick">Sick</option>
+              <option value="permission">Permission</option>
+            </select>
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Notes</label>
+            <textarea
+              value={formData.notes}
+              onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              placeholder="Optional notes..."
+              rows={3}
+            />
+          </div>
+          <div className="flex gap-3 pt-2">
+            <button
+              type="button"
+              onClick={() => { onClose(); resetForm(); }}
+              className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition"
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              disabled={isLoading}
+              className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition disabled:opacity-50"
+            >
+              {isLoading ? 'Saving...' : 'Save'}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+};
+
+// Update Attendance Modal Component
+interface UpdateAttendanceModalProps {
+  isOpen: boolean;
+  record: { id: number; status: string; notes?: string } | null;
+  onClose: () => void;
+  onSubmit: (id: number, data: { status: string; notes: string }) => void;
+  isLoading: boolean;
+}
+
+const UpdateAttendanceModal: React.FC<UpdateAttendanceModalProps> = ({ isOpen, record, onClose, onSubmit, isLoading }) => {
+  const [formData, setFormData] = useState({
+    status: record?.status || 'present',
+    notes: record?.notes || '',
+  });
+
+  React.useEffect(() => {
+    if (record) {
+      setFormData({
+        status: record.status,
+        notes: record.notes || '',
+      });
+    }
+  }, [record]);
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (record) {
+      onSubmit(record.id, formData);
+    }
+  };
+
+  if (!isOpen || !record) return null;
+
+  return (
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+      <div className="bg-white rounded-lg shadow-xl w-full max-w-md mx-4">
+        <div className="flex items-center justify-between p-4 border-b border-gray-200">
+          <h3 className="text-lg font-semibold text-gray-900">Update Attendance</h3>
+          <button onClick={onClose} className="text-gray-400 hover:text-gray-600">
+            <X className="w-5 h-5" />
+          </button>
+        </div>
+        <form onSubmit={handleSubmit} className="p-4 space-y-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Status</label>
+            <select
+              value={formData.status}
+              onChange={(e) => setFormData({ ...formData, status: e.target.value })}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+            >
+              <option value="present">Present</option>
+              <option value="absent">Absent</option>
+              <option value="late">Late</option>
+              <option value="sick">Sick</option>
+              <option value="permission">Permission</option>
+            </select>
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Notes</label>
+            <textarea
+              value={formData.notes}
+              onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              placeholder="Optional notes..."
+              rows={3}
+            />
+          </div>
+          <div className="flex gap-3 pt-2">
+            <button
+              type="button"
+              onClick={onClose}
+              className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition"
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              disabled={isLoading}
+              className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition disabled:opacity-50"
+            >
+              {isLoading ? 'Updating...' : 'Update'}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+};
+
+const ITEMS_PER_PAGE = 10;
+
 export const AttendancePage = (): React.ReactElement => {
-  // Get current month in YYYY-MM format
-  const currentMonth = new Date().toISOString().slice(0, 7);
-  const [selectedMonth, setSelectedMonth] = useState(currentMonth);
-  const [classFilter, setClassFilter] = useState<string | undefined>();
+  // Get current date for default date range (current month)
+  const today = new Date();
+  const firstDayOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
+  const formatDateValue = (d: Date) => d.toISOString().split('T')[0];
+
+  // Filter states (for input fields - not applied yet)
+  const [inputStartDate, setInputStartDate] = useState(formatDateValue(firstDayOfMonth));
+  const [inputEndDate, setInputEndDate] = useState(formatDateValue(today));
+  const [inputClassFilter, setInputClassFilter] = useState<string | undefined>();
+
+  // Applied filter states (used for query)
+  const [appliedStartDate, setAppliedStartDate] = useState(formatDateValue(firstDayOfMonth));
+  const [appliedEndDate, setAppliedEndDate] = useState(formatDateValue(today));
+  const [appliedClassFilter, setAppliedClassFilter] = useState<string | undefined>();
+
+  // Pagination state
+  const [currentPage, setCurrentPage] = useState(1);
+
+  // Modal states
+  const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [editingRecord, setEditingRecord] = useState<{ id: number; status: string; notes?: string } | null>(null);
 
   // Import modal state
   const [isImportModalOpen, setIsImportModalOpen] = useState(false);
@@ -20,21 +238,42 @@ export const AttendancePage = (): React.ReactElement => {
   const [isResultModalOpen, setIsResultModalOpen] = useState(false);
   const [importResult, setImportResult] = useState<any>(null);
 
+  // Query with applied filters
   const { data: attendance = [], isLoading } = useDailyAttendanceQuery({
-    month: selectedMonth,
-    class_id: classFilter,
+    start_date: appliedStartDate,
+    end_date: appliedEndDate,
+    class_id: appliedClassFilter,
   });
 
   const { data: classesData } = useClassesQuery();
   const { data: machinesData } = useMachinesQuery();
+
+  // Mutations
+  const manualAttendance = useManualAttendance();
+  const updateAttendance = useUpdateAttendance();
   const importAttendance = useImportAttendance();
+
+  // Apply filters when button clicked
+  const handleApplyFilters = () => {
+    setAppliedStartDate(inputStartDate);
+    setAppliedEndDate(inputEndDate);
+    setAppliedClassFilter(inputClassFilter);
+    setCurrentPage(1); // Reset to first page when filters change
+  };
+
+  // Pagination calculations (frontend pagination on all fetched data)
+  const totalItems = attendance.length;
+  const totalPages = Math.ceil(totalItems / ITEMS_PER_PAGE);
+  const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
+  const endIndex = startIndex + ITEMS_PER_PAGE;
+  const paginatedAttendance = attendance.slice(startIndex, endIndex);
 
   // Safe date formatter
   const formatDate = useCallback((dateStr: string) => {
     if (!dateStr) return 'N/A';
     try {
       const date = new Date(dateStr);
-      if (isNaN(date.getTime())) return dateStr; // Return original if invalid
+      if (isNaN(date.getTime())) return dateStr;
       return date.toLocaleDateString('en-US', {
         month: 'short',
         day: 'numeric',
@@ -49,13 +288,11 @@ export const AttendancePage = (): React.ReactElement => {
   const formatTime = useCallback((timeStr?: string) => {
     if (!timeStr) return '-';
     try {
-      // Handle both full datetime and time-only strings
       if (timeStr.includes('T') || timeStr.includes(' ')) {
         const date = new Date(timeStr);
         if (isNaN(date.getTime())) return timeStr;
         return date.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
       }
-      // Already a time string like "07:30"
       return timeStr;
     } catch {
       return timeStr;
@@ -71,7 +308,6 @@ export const AttendancePage = (): React.ReactElement => {
           ? classesData.data
           : [];
 
-      // Map to expected format: { id, name } using class_id and class_name
       return classes.map((cls: any) => ({
         id: cls.class_id,
         name: cls.class_name,
@@ -94,13 +330,62 @@ export const AttendancePage = (): React.ReactElement => {
     return [];
   }, [machinesData]);
 
+  // Handle manual attendance submission
+  const handleManualSubmit = (data: { student_nis: string; date: string; status: string; notes: string }) => {
+    manualAttendance.mutate(
+      {
+        student_nis: data.student_nis,
+        date: data.date,
+        status: data.status as 'present' | 'absent' | 'late' | 'excused',
+        notes: data.notes || undefined,
+      },
+      {
+        onSuccess: () => {
+          setIsAddModalOpen(false);
+          notify.success('Attendance added successfully!');
+        },
+        onError: (error: any) => {
+          notify.error(`Failed to add attendance: ${error.message || 'Unknown error'}`);
+        },
+      }
+    );
+  };
+
+  // Handle update attendance submission
+  const handleUpdateSubmit = (id: number, data: { status: string; notes: string }) => {
+    updateAttendance.mutate(
+      {
+        id,
+        data: {
+          status: data.status as 'present' | 'absent' | 'late' | 'sick' | 'permission',
+          notes: data.notes || undefined,
+        },
+      },
+      {
+        onSuccess: () => {
+          setIsEditModalOpen(false);
+          setEditingRecord(null);
+          notify.success('Attendance updated successfully!');
+        },
+        onError: (error: any) => {
+          notify.error(`Failed to update attendance: ${error.message || 'Unknown error'}`);
+        },
+      }
+    );
+  };
+
+  // Open edit modal
+  const openEditModal = (record: { id: number; status: string; notes?: string }) => {
+    setEditingRecord(record);
+    setIsEditModalOpen(true);
+  };
+
   const handleExport = () => {
     if (!attendance || attendance.length === 0) {
       notify.warning('No data to export');
       return;
     }
 
-    // Create CSV content
     const headers = ['Date', 'NIS', 'Name', 'Status', 'Check In', 'Check Out', 'Notes'];
     const rows = attendance.map(record => [
       record.date,
@@ -117,12 +402,11 @@ export const AttendancePage = (): React.ReactElement => {
       ...rows.map(row => row.map(cell => `"${cell}"`).join(','))
     ].join('\n');
 
-    // Download CSV
     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
     const link = document.createElement('a');
     const url = URL.createObjectURL(blob);
     link.setAttribute('href', url);
-    link.setAttribute('download', `attendance_${selectedMonth}.csv`);
+    link.setAttribute('download', `attendance_${appliedStartDate}_to_${appliedEndDate}.csv`);
     link.style.visibility = 'hidden';
     document.body.appendChild(link);
     link.click();
@@ -155,16 +439,13 @@ export const AttendancePage = (): React.ReactElement => {
         machine_code: selectedMachine,
       });
 
-      // Store result and show result modal
       setImportResult(response);
       setIsImportModalOpen(false);
       setIsResultModalOpen(true);
 
-      // Clear form
       setSelectedFile(null);
       setSelectedMachine('');
 
-      // Show appropriate notification based on errors
       const data = response?.data || response;
       const hasErrors = data?.errors && data.errors.length > 0;
 
@@ -214,6 +495,7 @@ export const AttendancePage = (): React.ReactElement => {
     }
   };
 
+  // Stats calculated from ALL data (not paginated)
   const stats = attendance.reduce(
     (acc, record) => {
       acc[record.status] = (acc[record.status] || 0) + 1;
@@ -227,11 +509,12 @@ export const AttendancePage = (): React.ReactElement => {
     ? ((stats.present / stats.total) * 100).toFixed(1)
     : '0';
 
-  // Format selected month for display
-  const formatMonthDisplay = (monthStr: string) => {
-    const [year, month] = monthStr.split('-');
-    const date = new Date(parseInt(year), parseInt(month) - 1);
-    return date.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+  // Format date range for display
+  const formatDateRangeDisplay = () => {
+    const start = new Date(appliedStartDate);
+    const end = new Date(appliedEndDate);
+    const options: Intl.DateTimeFormatOptions = { month: 'short', day: 'numeric', year: 'numeric' };
+    return `${start.toLocaleDateString('en-US', options)} - ${end.toLocaleDateString('en-US', options)}`;
   };
 
   if (isLoading) {
@@ -247,12 +530,19 @@ export const AttendancePage = (): React.ReactElement => {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Monthly Attendance</h1>
+          <h1 className="text-2xl font-bold text-gray-900">Attendance Records</h1>
           <p className="text-gray-500 mt-1">
-            Viewing attendance for <span className="font-semibold text-gray-700">{formatMonthDisplay(selectedMonth)}</span>
+            Viewing attendance for <span className="font-semibold text-gray-700">{formatDateRangeDisplay()}</span>
           </p>
         </div>
         <div className="flex gap-3">
+          <button
+            onClick={() => setIsAddModalOpen(true)}
+            className="flex items-center gap-2 px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition"
+          >
+            <Plus className="w-4 h-4" />
+            Add Manual
+          </button>
           <button
             onClick={() => setIsImportModalOpen(true)}
             className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition"
@@ -270,37 +560,62 @@ export const AttendancePage = (): React.ReactElement => {
         </div>
       </div>
 
-      {/* Filters */}
+      {/* Filters with Apply Button */}
       <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
-        <div className="flex flex-col md:flex-row gap-4">
-          <div className="flex-1 relative">
-            <Calendar className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
-            <input
-              type="month"
-              value={selectedMonth}
-              onChange={(e) => setSelectedMonth(e.target.value)}
-              className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-            />
+        <div className="flex flex-col md:flex-row gap-4 items-end">
+          <div className="flex-1">
+            <label className="block text-sm font-medium text-gray-700 mb-1">Start Date</label>
+            <div className="relative">
+              <Calendar className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
+              <input
+                type="date"
+                value={inputStartDate}
+                onChange={(e) => setInputStartDate(e.target.value)}
+                className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              />
+            </div>
           </div>
-          <div className="relative">
-            <Filter className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
-            <select
-              value={classFilter || ''}
-              onChange={(e) => setClassFilter(e.target.value || undefined)}
-              className="pl-10 pr-8 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-            >
-              <option value="">All Classes</option>
-              {uniqueClasses.map((cls) => (
-                <option key={cls.id} value={cls.id}>
-                  {cls.name}
-                </option>
-              ))}
-            </select>
+          <div className="flex-1">
+            <label className="block text-sm font-medium text-gray-700 mb-1">End Date</label>
+            <div className="relative">
+              <Calendar className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
+              <input
+                type="date"
+                value={inputEndDate}
+                onChange={(e) => setInputEndDate(e.target.value)}
+                className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              />
+            </div>
           </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Class</label>
+            <div className="relative">
+              <Filter className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
+              <select
+                value={inputClassFilter || ''}
+                onChange={(e) => setInputClassFilter(e.target.value || undefined)}
+                className="pl-10 pr-8 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              >
+                <option value="">All Classes</option>
+                {uniqueClasses.map((cls) => (
+                  <option key={cls.id} value={cls.id}>
+                    {cls.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+          </div>
+          <button
+            onClick={handleApplyFilters}
+            className="flex items-center gap-2 px-4 py-2 bg-gray-800 text-white rounded-lg hover:bg-gray-900 transition"
+          >
+            <Search className="w-4 h-4" />
+            Apply
+          </button>
         </div>
       </div>
 
-      {/* Stats */}
+      {/* Stats - shows total from ALL data */}
       <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
         <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
           <p className="text-sm text-gray-500">Total Records</p>
@@ -351,10 +666,13 @@ export const AttendancePage = (): React.ReactElement => {
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Notes
                 </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Actions
+                </th>
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
-              {attendance.map((record) => (
+              {paginatedAttendance.map((record) => (
                 <tr key={record.id} className="hover:bg-gray-50 transition">
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700 font-medium">
                     {formatDate(record.date)}
@@ -386,8 +704,17 @@ export const AttendancePage = (): React.ReactElement => {
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                     {formatTime(record.check_out)}
                   </td>
-                  <td className="px-6 py-4 text-sm text-gray-500">
+                  <td className="px-6 py-4 text-sm text-gray-500 max-w-xs truncate">
                     {record.notes || '-'}
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <button
+                      onClick={() => openEditModal({ id: record.id, status: record.status, notes: record.notes })}
+                      className="text-blue-600 hover:text-blue-800 transition p-1 rounded hover:bg-blue-50"
+                      title="Edit attendance"
+                    >
+                      <Edit2 className="w-4 h-4" />
+                    </button>
                   </td>
                 </tr>
               ))}
@@ -398,33 +725,72 @@ export const AttendancePage = (): React.ReactElement => {
         {(!attendance || attendance.length === 0) && (
           <div className="text-center py-12">
             <Calendar className="w-12 h-12 text-gray-300 mx-auto mb-3" />
-            <p className="text-gray-500 font-medium">No attendance records for this month</p>
-            <p className="text-sm text-gray-400 mt-1">Try selecting a different month or class</p>
+            <p className="text-gray-500 font-medium">No attendance records for this period</p>
+            <p className="text-sm text-gray-400 mt-1">Try selecting a different date range or class</p>
+          </div>
+        )}
+
+        {/* Pagination */}
+        {totalPages > 1 && (
+          <div className="flex items-center justify-between px-6 py-3 border-t border-gray-200 bg-gray-50">
+            <div className="text-sm text-gray-500">
+              Showing {startIndex + 1} to {Math.min(endIndex, totalItems)} of {totalItems} records
+            </div>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                disabled={currentPage === 1}
+                className="p-2 rounded-lg border border-gray-300 hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed transition"
+              >
+                <ChevronLeft className="w-4 h-4" />
+              </button>
+              <span className="px-3 py-1 text-sm font-medium text-gray-700">
+                Page {currentPage} of {totalPages}
+              </span>
+              <button
+                onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+                disabled={currentPage === totalPages}
+                className="p-2 rounded-lg border border-gray-300 hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed transition"
+              >
+                <ChevronRight className="w-4 h-4" />
+              </button>
+            </div>
           </div>
         )}
       </div>
+
+      {/* Manual Attendance Modal */}
+      <ManualAttendanceModal
+        isOpen={isAddModalOpen}
+        onClose={() => setIsAddModalOpen(false)}
+        onSubmit={handleManualSubmit}
+        isLoading={manualAttendance.isPending}
+      />
+
+      {/* Update Attendance Modal */}
+      <UpdateAttendanceModal
+        isOpen={isEditModalOpen}
+        record={editingRecord}
+        onClose={() => { setIsEditModalOpen(false); setEditingRecord(null); }}
+        onSubmit={handleUpdateSubmit}
+        isLoading={updateAttendance.isPending}
+      />
 
       {/* Import Modal */}
       {isImportModalOpen && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-xl shadow-2xl max-w-md w-full">
-            {/* Modal Header */}
             <div className="flex items-center justify-between p-6 border-b border-gray-200">
               <h3 className="text-xl font-bold text-gray-900 flex items-center gap-2">
                 <Upload className="w-5 h-5 text-green-600" />
                 Import Attendance
               </h3>
-              <button
-                onClick={closeImportModal}
-                className="text-gray-400 hover:text-gray-600 transition"
-              >
+              <button onClick={closeImportModal} className="text-gray-400 hover:text-gray-600 transition">
                 <X className="w-5 h-5" />
               </button>
             </div>
 
-            {/* Modal Body */}
             <div className="p-6 space-y-5">
-              {/* Machine Selection */}
               <div>
                 <label className="block text-sm font-semibold text-gray-700 mb-2">
                   Select Machine <span className="text-red-500">*</span>
@@ -444,7 +810,6 @@ export const AttendancePage = (): React.ReactElement => {
                 </select>
               </div>
 
-              {/* File Upload */}
               <div>
                 <label className="block text-sm font-semibold text-gray-700 mb-2">
                   Upload File <span className="text-red-500">*</span>
@@ -467,9 +832,7 @@ export const AttendancePage = (): React.ReactElement => {
                         {selectedFile ? (
                           <span className="font-medium text-green-600">{selectedFile.name}</span>
                         ) : (
-                          <>
-                            <span className="font-semibold">Click to upload</span> or drag and drop
-                          </>
+                          <><span className="font-semibold">Click to upload</span> or drag and drop</>
                         )}
                       </p>
                       <p className="text-xs text-gray-500 mt-1">CSV, XLSX, or XLS</p>
@@ -478,7 +841,6 @@ export const AttendancePage = (): React.ReactElement => {
                 </div>
               </div>
 
-              {/* Info Box */}
               <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
                 <p className="text-sm text-blue-800">
                   <span className="font-semibold">Note:</span> Make sure the file format matches the expected template for attendance data.
@@ -486,7 +848,6 @@ export const AttendancePage = (): React.ReactElement => {
               </div>
             </div>
 
-            {/* Modal Footer */}
             <div className="flex gap-3 p-6 bg-gray-50 rounded-b-xl">
               <button
                 onClick={closeImportModal}
@@ -521,7 +882,6 @@ export const AttendancePage = (): React.ReactElement => {
       {isResultModalOpen && importResult && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-hidden flex flex-col">
-            {/* Modal Header */}
             <div className="flex items-center justify-between p-6 border-b border-gray-200">
               <h3 className="text-xl font-bold text-gray-900 flex items-center gap-2">
                 {importResult?.data?.errors?.length > 0 ? (
@@ -536,26 +896,19 @@ export const AttendancePage = (): React.ReactElement => {
                   </>
                 )}
               </h3>
-              <button
-                onClick={() => setIsResultModalOpen(false)}
-                className="text-gray-400 hover:text-gray-600 transition"
-              >
+              <button onClick={() => setIsResultModalOpen(false)} className="text-gray-400 hover:text-gray-600 transition">
                 <X className="w-5 h-5" />
               </button>
             </div>
 
-            {/* Modal Body - Scrollable */}
             <div className="p-6 space-y-5 overflow-y-auto flex-1">
-              {/* Summary Cards */}
               <div className="grid grid-cols-3 gap-4">
                 <div className="bg-green-50 border border-green-200 rounded-lg p-4">
                   <div className="flex items-center gap-2 mb-1">
                     <CheckCircle2 className="w-4 h-4 text-green-600" />
                     <p className="text-xs font-semibold text-green-700 uppercase">Imported</p>
                   </div>
-                  <p className="text-2xl font-bold text-green-700">
-                    {importResult?.data?.logs_imported || 0}
-                  </p>
+                  <p className="text-2xl font-bold text-green-700">{importResult?.data?.logs_imported || 0}</p>
                   <p className="text-xs text-green-600 mt-1">Total logs</p>
                 </div>
 
@@ -564,9 +917,7 @@ export const AttendancePage = (): React.ReactElement => {
                     <FileText className="w-4 h-4 text-blue-600" />
                     <p className="text-xs font-semibold text-blue-700 uppercase">Created</p>
                   </div>
-                  <p className="text-2xl font-bold text-blue-700">
-                    {importResult?.data?.daily_records_created || 0}
-                  </p>
+                  <p className="text-2xl font-bold text-blue-700">{importResult?.data?.daily_records_created || 0}</p>
                   <p className="text-xs text-blue-600 mt-1">Attendance records</p>
                 </div>
 
@@ -575,14 +926,11 @@ export const AttendancePage = (): React.ReactElement => {
                     <AlertCircle className="w-4 h-4 text-amber-600" />
                     <p className="text-xs font-semibold text-amber-700 uppercase">Errors</p>
                   </div>
-                  <p className="text-2xl font-bold text-amber-700">
-                    {importResult?.data?.errors?.length || 0}
-                  </p>
+                  <p className="text-2xl font-bold text-amber-700">{importResult?.data?.errors?.length || 0}</p>
                   <p className="text-xs text-amber-600 mt-1">Records skipped</p>
                 </div>
               </div>
 
-              {/* Batch Info */}
               <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
                 <div className="flex items-center justify-between">
                   <div>
@@ -591,18 +939,16 @@ export const AttendancePage = (): React.ReactElement => {
                   </div>
                   <div className="text-right">
                     <p className="text-sm font-semibold text-gray-700">Status</p>
-                    <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                      importResult?.data?.errors?.length > 0 
-                        ? 'bg-amber-100 text-amber-700 border border-amber-200' 
-                        : 'bg-green-100 text-green-700 border border-green-200'
-                    }`}>
+                    <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium ${importResult?.data?.errors?.length > 0
+                      ? 'bg-amber-100 text-amber-700 border border-amber-200'
+                      : 'bg-green-100 text-green-700 border border-green-200'
+                      }`}>
                       {importResult?.data?.errors?.length > 0 ? 'Partial Success' : 'Complete'}
                     </span>
                   </div>
                 </div>
               </div>
 
-              {/* Error Details */}
               {importResult?.data?.errors && importResult.data.errors.length > 0 && (
                 <div className="space-y-3">
                   <div className="flex items-center gap-2">
@@ -612,14 +958,11 @@ export const AttendancePage = (): React.ReactElement => {
                     </h4>
                   </div>
 
-                  {/* Info Box */}
                   <div className="bg-amber-50 border border-amber-200 rounded-lg p-4">
                     <div className="flex items-start gap-3">
                       <AlertCircle className="w-5 h-5 text-amber-600 flex-shrink-0 mt-0.5" />
                       <div className="flex-1">
-                        <p className="text-sm font-semibold text-amber-900 mb-1">
-                          Missing Student Mappings
-                        </p>
+                        <p className="text-sm font-semibold text-amber-900 mb-1">Missing Student Mappings</p>
                         <p className="text-sm text-amber-800">
                           The following machine users are not mapped to any student. Please map them in the
                           <a href="/mapping" className="font-semibold underline ml-1 hover:text-amber-900">Mapping page</a>
@@ -629,29 +972,19 @@ export const AttendancePage = (): React.ReactElement => {
                     </div>
                   </div>
 
-                  {/* Error List */}
                   <div className="bg-white border border-gray-200 rounded-lg overflow-hidden">
                     <div className="max-h-64 overflow-y-auto">
                       <table className="w-full text-sm">
                         <thead className="bg-gray-50 sticky top-0">
                           <tr>
-                            <th className="px-4 py-2 text-left text-xs font-semibold text-gray-600 uppercase">
-                              #
-                            </th>
-                            <th className="px-4 py-2 text-left text-xs font-semibold text-gray-600 uppercase">
-                              Machine User
-                            </th>
-                            <th className="px-4 py-2 text-left text-xs font-semibold text-gray-600 uppercase">
-                              Name
-                            </th>
-                            <th className="px-4 py-2 text-left text-xs font-semibold text-gray-600 uppercase">
-                              Date
-                            </th>
+                            <th className="px-4 py-2 text-left text-xs font-semibold text-gray-600 uppercase">#</th>
+                            <th className="px-4 py-2 text-left text-xs font-semibold text-gray-600 uppercase">Machine User</th>
+                            <th className="px-4 py-2 text-left text-xs font-semibold text-gray-600 uppercase">Name</th>
+                            <th className="px-4 py-2 text-left text-xs font-semibold text-gray-600 uppercase">Date</th>
                           </tr>
                         </thead>
                         <tbody className="divide-y divide-gray-200">
                           {importResult.data.errors.map((error: string, index: number) => {
-                            // Parse error: "No student mapping for machine user ID 55 (Graciela) on 2025-12-01"
                             const match = error.match(/machine user ID (\d+) \(([^)]+)\) on (\d{4}-\d{2}-\d{2})/);
                             const userId = match ? match[1] : '-';
                             const userName = match ? match[2] : '-';
@@ -659,12 +992,8 @@ export const AttendancePage = (): React.ReactElement => {
 
                             return (
                               <tr key={index} className="hover:bg-gray-50">
-                                <td className="px-4 py-3 text-gray-500 font-medium">
-                                  {index + 1}
-                                </td>
-                                <td className="px-4 py-3 text-gray-900 font-mono">
-                                  ID {userId}
-                                </td>
+                                <td className="px-4 py-3 text-gray-500 font-medium">{index + 1}</td>
+                                <td className="px-4 py-3 text-gray-900 font-mono">ID {userId}</td>
                                 <td className="px-4 py-3">
                                   <span className="inline-flex items-center gap-1.5 text-gray-700">
                                     <div className="w-6 h-6 rounded-full bg-gray-200 flex items-center justify-center text-xs font-semibold text-gray-600">
@@ -688,14 +1017,11 @@ export const AttendancePage = (): React.ReactElement => {
                     </div>
                   </div>
 
-                  {/* Action Suggestion */}
                   <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
                     <div className="flex items-start gap-3">
                       <FileText className="w-5 h-5 text-blue-600 flex-shrink-0 mt-0.5" />
                       <div className="flex-1">
-                        <p className="text-sm font-semibold text-blue-900 mb-1">
-                          Next Steps
-                        </p>
+                        <p className="text-sm font-semibold text-blue-900 mb-1">Next Steps</p>
                         <ol className="text-sm text-blue-800 space-y-1 list-decimal list-inside">
                           <li>Go to the <a href="/mapping" className="font-semibold underline hover:text-blue-900">Mapping page</a></li>
                           <li>Find unmapped machine users in the list</li>
@@ -708,7 +1034,6 @@ export const AttendancePage = (): React.ReactElement => {
                 </div>
               )}
 
-              {/* Success Message (no errors) */}
               {(!importResult?.data?.errors || importResult.data.errors.length === 0) && (
                 <div className="bg-green-50 border border-green-200 rounded-lg p-4">
                   <div className="flex items-center gap-3">
@@ -724,7 +1049,6 @@ export const AttendancePage = (): React.ReactElement => {
               )}
             </div>
 
-            {/* Modal Footer */}
             <div className="flex gap-3 p-6 bg-gray-50 border-t border-gray-200">
               {importResult?.data?.errors && importResult.data.errors.length > 0 && (
                 <a
@@ -736,11 +1060,8 @@ export const AttendancePage = (): React.ReactElement => {
               )}
               <button
                 onClick={() => setIsResultModalOpen(false)}
-                className={`${
-                  importResult?.data?.errors && importResult.data.errors.length > 0 
-                    ? 'flex-1' 
-                    : 'w-full'
-                } px-4 py-2.5 border-2 border-gray-300 text-gray-700 rounded-lg hover:bg-gray-100 transition font-medium`}
+                className={`${importResult?.data?.errors && importResult.data.errors.length > 0 ? 'flex-1' : 'w-full'
+                  } px-4 py-2.5 border-2 border-gray-300 text-gray-700 rounded-lg hover:bg-gray-100 transition font-medium`}
               >
                 Close
               </button>
