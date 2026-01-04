@@ -62,18 +62,6 @@ const LoginPage = (): React.ReactElement => {
     [username, password, navigate, authLogin]
   );
 
-  const fillDemoCredentials = useCallback((type: 'teacher' | 'admin') => {
-    if (type === 'teacher') {
-      setUsername('teacher1');
-      setPassword('password123');
-      notify.info('Demo credentials untuk Guru telah terisi');
-    } else {
-      setUsername('admin');
-      setPassword('admin123');
-      notify.info('Demo credentials untuk Admin telah terisi');
-    }
-  }, []);
-
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-sky-50 flex">
       {/* Left Side - Branding (Full Height) */}
@@ -248,34 +236,6 @@ const LoginPage = (): React.ReactElement => {
                 )}
               </button>
 
-              {/* Demo Credentials */}
-              <div className="mt-8 pt-8 border-t border-gray-200">
-                <p className="text-xs text-gray-500 font-semibold uppercase tracking-wide mb-4">
-                  Akun Demo untuk Testing
-                </p>
-                <div className="grid grid-cols-2 gap-3">
-                  <button
-                    type="button"
-                    onClick={() => fillDemoCredentials('teacher')}
-                    className="p-4 bg-blue-50 hover:bg-blue-100 border border-blue-200 rounded-lg transition-colors text-left"
-                    disabled={isLoading}
-                  >
-                    <p className="text-sm font-semibold text-blue-900 mb-2">👨‍🏫 Guru</p>
-                    <p className="text-xs text-blue-700 mb-1">Username: teacher1</p>
-                    <p className="text-xs text-blue-600">Password: password123</p>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => fillDemoCredentials('admin')}
-                    className="p-4 bg-gray-50 hover:bg-gray-100 border border-gray-200 rounded-lg transition-colors text-left"
-                    disabled={isLoading}
-                  >
-                    <p className="text-sm font-semibold text-gray-900 mb-2">👤 Admin</p>
-                    <p className="text-xs text-gray-700 mb-1">Username: admin</p>
-                    <p className="text-xs text-gray-600">Password: admin123</p>
-                  </button>
-                </div>
-              </div>
             </div>
           </div>
         </div>
