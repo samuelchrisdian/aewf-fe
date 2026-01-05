@@ -1,7 +1,7 @@
-import React from 'react';
-import { useModelInfo, useModelPerformance, useRetrainModel } from '@/features/ml';
+import React, { useState } from 'react';
+import { useModelInfo, useModelPerformance, useRetrainModel, usePredictAllStudents, PredictErrorModal, type PredictError } from '@/features/ml';
 import { Brain, RefreshCw, CheckCircle, AlertTriangle, Clock } from 'lucide-react';
-import { notify } from '@/lib/notifications';
+import { notify } from '@/lib/notifications.tsx';
 
 const ModelStatusCard: React.FC = () => {
     // Separate concerns:
@@ -10,9 +10,16 @@ const ModelStatusCard: React.FC = () => {
     const { data: modelInfo, isLoading: infoLoading, error: infoError } = useModelInfo();
     const { data: modelPerformance, isLoading: perfLoading } = useModelPerformance();
     const { mutate: retrain, isPending: isRetraining } = useRetrainModel();
+    const { mutate: predictAll, isPending: isPredicting } = usePredictAllStudents();
+
+    // Modal state for error display
+    const [showErrorModal, setShowErrorModal] = useState(false);
+    const [predictErrors, setPredictErrors] = useState<PredictError[]>([]);
+    const [totalStudents, setTotalStudents] = useState(0);
 
     const isLoading = infoLoading || perfLoading;
     const hasError = infoError;
+    const isProcessing = isRetraining || isPredicting;
 
     const handleRetrain = async () => {
         const confirmed = await notify.confirm(
@@ -28,7 +35,31 @@ const ModelStatusCard: React.FC = () => {
         if (confirmed) {
             retrain(undefined, {
                 onSuccess: () => {
-                    notify.success('Model berhasil dilatih! Metrics telah diperbarui.');
+                    // Step 1: Retrain succeeded, now predict all students
+                    notify.info('Model berhasil dilatih! Memperbarui prediksi untuk semua siswa...');
+
+                    predictAll(undefined, {
+                        onSuccess: (data) => {
+                            if (data.success) {
+                                notify.success('Retrain berhasil! Semua prediksi siswa telah diperbarui.');
+                            } else {
+                                // Some predictions failed - show modal with details
+                                setPredictErrors(data.failed);
+                                setTotalStudents(data.totalStudents);
+                                setShowErrorModal(true);
+
+                                notify.error(
+                                    `Retrain gagal! ${data.errorCount} dari ${data.totalStudents} siswa gagal diprediksi.`
+                                );
+                            }
+                        },
+                        onError: (error: any) => {
+                            // Predict all failed completely
+                            notify.error(
+                                `Retrain gagal! Tidak dapat memperbarui prediksi: ${error.message || 'Unknown error'}`
+                            );
+                        }
+                    });
                 },
                 onError: (error: any) => {
                     notify.error(error.message || 'Gagal melatih model');
@@ -98,11 +129,11 @@ const ModelStatusCard: React.FC = () => {
                 </h3>
                 <button
                     onClick={handleRetrain}
-                    disabled={isRetraining}
+                    disabled={isProcessing}
                     className="flex items-center gap-1 px-3 py-1.5 text-xs font-medium text-purple-600 bg-purple-50 rounded-lg hover:bg-purple-100 transition-colors disabled:opacity-50"
                 >
-                    <RefreshCw className={`w-3.5 h-3.5 ${isRetraining ? 'animate-spin' : ''}`} />
-                    {isRetraining ? 'Training...' : 'Retrain'}
+                    <RefreshCw className={`w-3.5 h-3.5 ${isProcessing ? 'animate-spin' : ''}`} />
+                    {isRetraining ? 'Training...' : isPredicting ? 'Predicting...' : 'Retrain'}
                 </button>
             </div>
 
@@ -170,6 +201,14 @@ const ModelStatusCard: React.FC = () => {
                     Threshold: {modelInfo?.threshold || 0.5}
                 </div>
             </div>
+
+            {/* Error Modal */}
+            <PredictErrorModal
+                isOpen={showErrorModal}
+                onClose={() => setShowErrorModal(false)}
+                errors={predictErrors}
+                totalStudents={totalStudents}
+            />
         </div>
     );
 };

@@ -3,7 +3,7 @@ import { FileUploader } from './FileUploader';
 import { useImportAttendance } from '../queries';
 import { useMachinesQuery } from '../../machines/queries';
 import { CheckCircle, AlertCircle, Server, Info } from 'lucide-react';
-import { notify } from '@/lib/notifications';
+import { notify } from '@/lib/notifications.tsx';
 
 interface ImportAttendanceStepProps {
     onBack: () => void;

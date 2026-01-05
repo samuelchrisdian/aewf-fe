@@ -4,38 +4,40 @@ import { apiClient } from '@/lib/api-client';
 export const TEACHERS_QUERY_KEY = ['teachers'] as const;
 
 export interface Teacher {
-    teacher_id: string;
-    name: string;
-    email?: string;
-    phone?: string;
-    subject?: string;
+  teacher_id: string;
+  name: string;
+  role: string;
+  email?: string;
+  phone?: string;
 }
 
-interface TeachersResponse {
-    data?: Teacher[];
-}
-
+// Get all teachers
 export function useTeachersQuery() {
-    return useQuery({
-        queryKey: TEACHERS_QUERY_KEY,
-        queryFn: async (): Promise<Teacher[]> => {
-            try {
-                const response = await apiClient.get<TeachersResponse | Teacher[]>('/api/v1/teachers');
+  return useQuery({
+    queryKey: TEACHERS_QUERY_KEY,
+    queryFn: async () => {
+      try {
+        const response = await apiClient.get<any>('/api/v1/teachers');
 
-                // Handle different response structures
-                if (Array.isArray(response)) {
-                    return response;
-                } else if (response.data && Array.isArray(response.data)) {
-                    return response.data;
-                }
+        // Extract array from response
+        let teachers: Teacher[] = [];
+        if (Array.isArray(response)) {
+          teachers = response;
+        } else if (response.data && Array.isArray(response.data)) {
+          teachers = response.data;
+        } else if (response.success && response.data && Array.isArray(response.data)) {
+          teachers = response.data;
+        }
 
-                return [];
-            } catch (error) {
-                console.error('Failed to fetch teachers:', error);
-                return [];
-            }
-        },
-        staleTime: 1000 * 60 * 5, // 5 minutes
-        retry: false,
-    });
+        // Filter only "Wali Kelas" role
+        return teachers.filter(teacher => teacher.role === 'Wali Kelas');
+      } catch (error) {
+        console.error('Teachers API error:', error);
+        return [];
+      }
+    },
+    staleTime: 1000 * 60 * 5, // 5 minutes
+    retry: 2,
+  });
 }
+

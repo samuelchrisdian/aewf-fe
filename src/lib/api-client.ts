@@ -28,7 +28,7 @@ class ApiClient {
       headers: {
         'Content-Type': 'application/json',
       },
-      timeout: 30000, // 30 seconds default timeout
+      timeout: 300000, // 5 minutes - for long-running operations (retrain, predict all)
     });
 
     // Request interceptor - add auth token

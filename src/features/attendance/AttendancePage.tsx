@@ -3,7 +3,7 @@ import { useDailyAttendanceQuery, useImportAttendance, useManualAttendance, useU
 import { useClassesQuery } from '../classes/queries';
 import { useMachinesQuery } from '../machines/queries';
 import { Calendar, Download, Filter, CheckCircle, XCircle, Clock, FileText, Upload, X, AlertCircle, CheckCircle2, AlertTriangle, Plus, Edit2, Search, ChevronLeft, ChevronRight } from 'lucide-react';
-import { notify } from '@/lib/notifications';
+import { notify } from '@/lib/notifications.tsx';
 
 // Manual Attendance Modal Component
 interface ManualAttendanceModalProps {

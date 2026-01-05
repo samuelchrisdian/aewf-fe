@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useClassesQuery, useCreateClass, useUpdateClass, useDeleteClass, useTeachersQuery } from './queries';
 import { Plus, Edit2, Trash2, Users, BookOpen, X } from 'lucide-react';
-import { notify } from '@/lib/notifications';
+import { notify } from '@/lib/notifications.tsx';
 
 export const ClassesPage = (): React.ReactElement => {
   const { data: classesData, isLoading } = useClassesQuery();

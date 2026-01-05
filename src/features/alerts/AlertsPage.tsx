@@ -3,14 +3,105 @@ import { Eye, CheckCircle } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import DataTable from '../../components/DataTable';
 import { useRiskListQuery, useAlertAction } from './queries';
+import { AcknowledgeModal } from './components/AcknowledgeModal';
+import { useUpdateStudent } from '../students/queries';
+import { notify } from '@/lib/notifications.tsx';
+import { apiClient } from '@/lib/api-client';
+import type { RiskStudent } from '@/types/api';
 
 const AlertsPage = (): React.ReactElement => {
     const [filter, setFilter] = useState<'ALL' | 'HIGH' | 'MEDIUM' | 'LOW'>('ALL');
     const [search, setSearch] = useState('');
+    const [isAckModalOpen, setIsAckModalOpen] = useState(false);
+    const [selectedStudent, setSelectedStudent] = useState<RiskStudent | null>(null);
 
     const { data: students = [], isLoading: loading } = useRiskListQuery({
         level: filter !== 'ALL' ? filter.toLowerCase() as any : undefined,
     });
+
+    const alertAction = useAlertAction();
+    const updateStudent = useUpdateStudent();
+
+    // Handler to open acknowledge modal
+    const handleAckClick = useCallback((student: RiskStudent) => {
+        setSelectedStudent(student);
+        setIsAckModalOpen(true);
+    }, []);
+
+    // Handler to close acknowledge modal
+    const handleCloseModal = useCallback(() => {
+        setIsAckModalOpen(false);
+        setSelectedStudent(null);
+    }, []);
+
+    // Handler for modal submit
+    const handleAckSubmit = async (data: { phone: string; action: string; notes: string; followUpDate?: string }) => {
+        if (!selectedStudent) return;
+
+        try {
+            // First, fetch alert to get alert ID and class_id
+            const alertsData = await apiClient.get<{ alerts?: any[]; data?: any[] }>(
+                '/api/v1/risk/alerts',
+                { params: { student_nis: selectedStudent.nis } }
+            );
+            const alerts = alertsData.alerts || alertsData.data || [];
+
+            if (alerts.length === 0) {
+                throw new Error('No alert found for this student');
+            }
+
+            const alert = alerts[0];
+            const alertId = alert.id;
+            const classIdFromAlert = alert.class_id || selectedStudent.class_id;
+
+            // Update student's parent phone and class_id from alert
+            await updateStudent.mutateAsync({
+                nis: selectedStudent.nis,
+                data: {
+                    name: selectedStudent.name,
+                    class_id: String(classIdFromAlert),
+                    parent_phone: data.phone,
+                },
+            });
+
+            // Create alert action
+            await alertAction.mutateAsync({
+                alertId,
+                action: {
+                    action: data.action as any,
+                    notes: data.notes,
+                    follow_up_date: data.followUpDate,
+                },
+            });
+
+            // Close modal
+            handleCloseModal();
+
+            // Show success notification
+            notify.success(`Alert untuk ${selectedStudent.name} berhasil di-acknowledge`);
+
+            // Format phone for WhatsApp (remove non-digits and ensure it starts correctly)
+            let waPhone = data.phone.replace(/\D/g, '');
+            if (waPhone.startsWith('0')) {
+                waPhone = '62' + waPhone.substring(1);
+            } else if (!waPhone.startsWith('62')) {
+                waPhone = '62' + waPhone;
+            }
+
+            // Small delay to let notification show before redirect
+            setTimeout(() => {
+                // Redirect to WhatsApp with pre-filled message
+                const message = encodeURIComponent(
+                    `Halo, saya dari sekolah ingin menginformasikan mengenai ${selectedStudent.name} (${selectedStudent.nis}). ${data.notes}`
+                );
+                window.open(`https://wa.me/${waPhone}?text=${message}`, '_blank');
+            }, 500); // 500ms delay to show notification
+
+        } catch (error: any) {
+            console.error('Error acknowledging alert:', error);
+            notify.error(error.message || 'Gagal melakukan acknowledge. Silakan coba lagi.');
+        }
+    };
 
     const getRiskColor = useCallback((level: string) => {
         const normalized = level?.toUpperCase();
@@ -77,7 +168,10 @@ const AlertsPage = (): React.ReactElement => {
                         <Link to={`/alerts/${student.nis}`} className="text-primary hover:text-primary/80 flex items-center text-sm font-medium">
                             <Eye className="w-4 h-4 mr-1" /> View
                         </Link>
-                        <button className="text-gray-400 hover:text-green-600 flex items-center text-sm font-medium transition-colors">
+                        <button
+                            onClick={() => handleAckClick(student)}
+                            className="text-gray-400 hover:text-green-600 flex items-center text-sm font-medium transition-colors"
+                        >
                             <CheckCircle className="w-4 h-4 mr-1" /> Ack
                         </button>
                     </div>
@@ -85,7 +179,7 @@ const AlertsPage = (): React.ReactElement => {
             },
             enableSorting: false,
         },
-    ], [getRiskColor]);
+    ], [getRiskColor, handleAckClick]);
 
     if (loading) return <div className="p-10 text-center">Loading...</div>;
 
@@ -126,6 +220,15 @@ const AlertsPage = (): React.ReactElement => {
                     noDataMessage="No students found matching the filter."
                 />
             </div>
+
+            {/* Acknowledge Modal */}
+            <AcknowledgeModal
+                isOpen={isAckModalOpen}
+                onClose={handleCloseModal}
+                student={selectedStudent}
+                onSubmit={handleAckSubmit}
+                isProcessing={updateStudent.isPending || alertAction.isPending}
+            />
         </div>
     );
 };

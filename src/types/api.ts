@@ -202,8 +202,9 @@ export interface AlertsParams {
 }
 
 export interface AlertActionRequest {
-  action: 'acknowledge' | 'in_progress' | 'resolve' | 'dismiss';
+  action: 'contacted_parent' | 'scheduled_meeting' | 'home_visit' | 'counseling' | 'other';
   notes?: string;
+  follow_up_date?: string;
   status?: 'open' | 'in_progress' | 'resolved' | 'dismissed';
 }
 
@@ -452,15 +453,18 @@ export interface MappingSuggestion {
   } | null;
   confidence_score: number;
   status: 'pending' | 'verified' | 'rejected';
+  is_mapped: boolean;
   verified_at?: string;
   verified_by?: string;
 }
 
 export interface MappingStats {
-  total_users: number;
-  mapped: number;
-  pending: number;
-  unmapped: number;
+  total_machine_users: number;
+  mapped_count: number;
+  unmapped_count: number;
+  suggested_count: number;
+  verified_count: number;
+  mapping_rate: number;
 }
 
 export interface VerifyMappingRequest {

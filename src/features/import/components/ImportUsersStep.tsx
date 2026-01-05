@@ -3,7 +3,7 @@ import { FileUploader } from './FileUploader';
 import { useImportSync } from '../queries';
 import { useMachinesQuery } from '../../machines/queries';
 import { CheckCircle, AlertCircle, Server } from 'lucide-react';
-import { notify } from '@/lib/notifications';
+import { notify } from '@/lib/notifications.tsx';
 
 interface ImportUsersStepProps {
     onNext: () => void;

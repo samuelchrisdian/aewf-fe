@@ -34,6 +34,29 @@ export interface RetrainResponse {
     metrics?: ModelPerformance;
 }
 
+export interface PredictError {
+    nis: string;
+    name?: string;
+    error: string;
+}
+
+export interface PredictAllResponse {
+    success: boolean;
+    failed: PredictError[];
+    totalStudents: number;
+    successCount: number;
+    errorCount: number;
+}
+
+export interface PredictResponse {
+    success: boolean;
+    message: string;
+    nis: string;
+    risk_tier?: string;
+    risk_score?: number;
+    factors?: any;
+}
+
 // ============ Query Keys ============
 export const ML_QUERY_KEYS = {
     modelInfo: ['ml', 'model-info'] as const,
@@ -142,3 +165,69 @@ export function useRetrainModel() {
         },
     });
 }
+
+/**
+ * Hook to predict risk for all students
+ * GET /api/v1/models/predict/{nis} for each student
+ *
+ * This is called after successful retrain to update all risk predictions
+ */
+export function usePredictAllStudents() {
+    return useMutation({
+        mutationFn: async (): Promise<PredictAllResponse> => {
+            // First, fetch all students
+            const studentsResponse = await apiClient.get<any>('/api/v1/students', {
+                params: { per_page: 9999 } // Get all students
+            });
+
+            const students = studentsResponse.data || [];
+            const failed: PredictError[] = [];
+            const totalStudents = students.length;
+
+            // Call predict for each student
+            const predictPromises = students.map(async (student: any) => {
+                try {
+                    const nis = student.nis || student.student_nis;
+                    const name = student.name || student.student_name;
+
+                    if (!nis) {
+                        throw new Error('NIS not found');
+                    }
+
+                    await apiClient.get<any>(`/api/v1/models/predict/${nis}`);
+                    return { success: true, nis, name };
+                } catch (error: any) {
+                    const nis = student.nis || student.student_nis || 'unknown';
+                    const name = student.name || student.student_name;
+
+                    // Extract error message from API response
+                    let errorMessage = 'Unknown error';
+                    if (error.response?.data?.message) {
+                        errorMessage = error.response.data.message;
+                    } else if (error.message) {
+                        errorMessage = error.message;
+                    }
+
+                    failed.push({
+                        nis,
+                        name,
+                        error: errorMessage,
+                    });
+
+                    return { success: false, nis, name, error: errorMessage };
+                }
+            });
+
+            await Promise.all(predictPromises);
+
+            return {
+                success: failed.length === 0,
+                failed,
+                totalStudents,
+                successCount: totalStudents - failed.length,
+                errorCount: failed.length,
+            };
+        },
+    });
+}
+

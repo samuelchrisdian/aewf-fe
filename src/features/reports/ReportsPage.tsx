@@ -2,7 +2,7 @@ import React, { useState, useMemo } from 'react';
 import { FileText, BarChart3, AlertTriangle, BookOpen, RefreshCw, Download } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
 import { apiClient } from '@/lib/api-client';
-import { notify } from '@/lib/notifications';
+import { notify } from '@/lib/notifications.tsx';
 import { ReportFilters, ExportButton, AttendanceReport, RiskReport, ClassSummaryReport } from './components';
 import {
     useAttendanceReport,
