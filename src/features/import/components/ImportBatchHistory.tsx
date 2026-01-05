@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useBatchesQuery, useBatchQuery, useRollbackBatch, useDeleteBatch } from '../queries';
 import { FileSpreadsheet, Eye, RotateCcw, Trash2, X, AlertCircle, CheckCircle, Clock, XCircle } from 'lucide-react';
-import { notify } from '@/lib/notifications';
+import { notify } from '@/lib/notifications.tsx';
 import type { ImportBatch } from '@/types/api';
 
 export const ImportBatchHistory: React.FC = () => {

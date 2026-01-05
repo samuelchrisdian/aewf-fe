@@ -11,6 +11,7 @@ interface MappingSuggestionCardProps {
     onReject?: (id: number) => void;
     onManualEdit?: (suggestion: MappingSuggestion) => void;
     isVerifying?: boolean;
+    showCheckbox?: boolean;
 }
 
 export const MappingSuggestionCard: React.FC<MappingSuggestionCardProps> = ({
@@ -21,6 +22,7 @@ export const MappingSuggestionCard: React.FC<MappingSuggestionCardProps> = ({
     onReject,
     onManualEdit,
     isVerifying = false,
+    showCheckbox = false,
 }) => {
     // Early return if suggestion is invalid
     if (!suggestion || !suggestion.machine_user) {
@@ -32,13 +34,18 @@ export const MappingSuggestionCard: React.FC<MappingSuggestionCardProps> = ({
     return (
         <div className={`bg-white border rounded-lg p-4 hover:shadow-md transition ${isSelected ? 'ring-2 ring-primary' : ''}`}>
             <div className="flex items-center gap-4">
-                {/* Checkbox */}
-                {onSelect && (
+                {/* Checkbox - only show for unmapped items */}
+                {showCheckbox && onSelect && (
                     <input
                         type="checkbox"
                         checked={isSelected}
-                        onChange={(e) => onSelect(suggestion.id, e.target.checked)}
-                        className="w-4 h-4 text-primary border-gray-300 rounded focus:ring-primary"
+                        onChange={(e) => {
+                            e.stopPropagation();
+                            // Pass 0 as placeholder - the wrapper in UnmappedUsersList will use the correct itemId
+                            onSelect(0, e.target.checked);
+                        }}
+                        onClick={(e) => e.stopPropagation()}
+                        className="w-4 h-4 text-primary border-gray-300 rounded focus:ring-primary cursor-pointer"
                     />
                 )}
 

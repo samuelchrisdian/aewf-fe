@@ -1,9 +1,10 @@
 import React, { useState, useMemo } from 'react';
 import { Link } from 'react-router-dom';
-import { useStudentsQuery, useDeleteStudent, useCreateStudent, useUpdateStudent } from './queries';
+import { useStudentsQuery, useDeleteStudent, useCreateStudent, useUpdateStudent, usePredictStudent } from './queries';
 import { useClassesQuery } from '../classes/queries';
-import { Search, Plus, Edit2, Trash2, Eye, X } from 'lucide-react';
-import { notify } from '@/lib/notifications';
+import { usePredictAllStudents, PredictErrorModal, type PredictError } from '@/features/ml';
+import { Search, Plus, Edit2, Trash2, Eye, X, RefreshCw, Zap } from 'lucide-react';
+import { notify } from '@/lib/notifications.tsx';
 import type { StudentsListParams } from '@/types/api';
 
 export const StudentsPage = (): React.ReactElement => {
@@ -20,6 +21,11 @@ export const StudentsPage = (): React.ReactElement => {
     parent_phone: '',
     is_active: true,
   });
+
+  // Predict modal state
+  const [showErrorModal, setShowErrorModal] = useState(false);
+  const [predictErrors, setPredictErrors] = useState<PredictError[]>([]);
+  const [totalStudents, setTotalStudents] = useState(0);
 
   const queryParams: StudentsListParams = {
     page,
@@ -70,6 +76,8 @@ export const StudentsPage = (): React.ReactElement => {
   const deleteStudent = useDeleteStudent();
   const createStudent = useCreateStudent();
   const updateStudent = useUpdateStudent();
+  const predictStudent = usePredictStudent();
+  const { mutate: predictAll, isPending: isPredictingAll } = usePredictAllStudents();
 
   const handleCreateSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -148,6 +156,70 @@ export const StudentsPage = (): React.ReactElement => {
     }
   };
 
+  const handlePredictStudent = async (nis: string, name: string) => {
+    const confirmed = await notify.confirm(
+      `Predict risk for student ${name}?`,
+      {
+        title: 'Predict Student Risk',
+        confirmText: 'Predict',
+        cancelText: 'Cancel',
+        type: 'info'
+      }
+    );
+
+    if (confirmed) {
+      try {
+        const result = await predictStudent.mutateAsync(nis);
+        if (result.success) {
+          notify.success(`Risk prediction completed for ${name}!`);
+        } else {
+          notify.error('Prediction failed');
+        }
+      } catch (error: any) {
+        const errorMsg = error.response?.data?.message || error.message || 'Failed to predict risk';
+        notify.error(errorMsg);
+      }
+    }
+  };
+
+  const handlePredictAll = async () => {
+    const confirmed = await notify.confirm(
+      'This will predict risk for all students. This may take a few minutes.',
+      {
+        title: 'Predict All Students',
+        confirmText: 'Start Prediction',
+        cancelText: 'Cancel',
+        type: 'info'
+      }
+    );
+
+    if (confirmed) {
+      notify.info('Starting risk prediction for all students...');
+
+      predictAll(undefined, {
+        onSuccess: (data) => {
+          if (data.success) {
+            notify.success(`Success! All ${data.totalStudents} students have been predicted.`);
+          } else {
+            // Some predictions failed - show modal with details
+            setPredictErrors(data.failed);
+            setTotalStudents(data.totalStudents);
+            setShowErrorModal(true);
+
+            notify.error(
+              `Prediction failed! ${data.errorCount} of ${data.totalStudents} students failed.`
+            );
+          }
+        },
+        onError: (error: any) => {
+          notify.error(
+            `Prediction failed: ${error.message || 'Unknown error'}`
+          );
+        }
+      });
+    }
+  };
+
   if (isLoading) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -183,13 +255,23 @@ export const StudentsPage = (): React.ReactElement => {
           <h1 className="text-2xl font-bold text-gray-900">Students Management</h1>
           <p className="text-gray-500 mt-1">Manage student data and information</p>
         </div>
-        <button
-          onClick={() => setIsCreateModalOpen(true)}
-          className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition"
-        >
-          <Plus className="w-4 h-4" />
-          Add Student
-        </button>
+        <div className="flex gap-2">
+          <button
+            onClick={handlePredictAll}
+            disabled={isPredictingAll}
+            className="flex items-center gap-2 px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition disabled:opacity-50"
+          >
+            <RefreshCw className={`w-4 h-4 ${isPredictingAll ? 'animate-spin' : ''}`} />
+            {isPredictingAll ? 'Predicting...' : 'Predict All'}
+          </button>
+          <button
+            onClick={() => setIsCreateModalOpen(true)}
+            className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition"
+          >
+            <Plus className="w-4 h-4" />
+            Add Student
+          </button>
+        </div>
       </div>
 
       {/* Filters */}
@@ -283,6 +365,14 @@ export const StudentsPage = (): React.ReactElement => {
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                     <div className="flex items-center justify-end gap-2">
+                      <button
+                        onClick={() => handlePredictStudent(student.nis, student.name)}
+                        disabled={predictStudent.isPending}
+                        className="text-purple-600 hover:text-purple-900 disabled:opacity-50"
+                        title="Predict Risk"
+                      >
+                        <RefreshCw className="w-4 h-4" />
+                      </button>
                       <Link
                         to={`/alerts/${student.nis}`}
                         className="text-blue-600 hover:text-blue-900"
@@ -560,6 +650,14 @@ export const StudentsPage = (): React.ReactElement => {
           </div>
         </div>
       )}
+
+      {/* Predict Error Modal */}
+      <PredictErrorModal
+        isOpen={showErrorModal}
+        onClose={() => setShowErrorModal(false)}
+        errors={predictErrors}
+        totalStudents={totalStudents}
+      />
     </div>
   );
 };

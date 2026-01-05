@@ -1,5 +1,5 @@
 import React from 'react';
-import { Users, CheckCircle, Clock, AlertTriangle } from 'lucide-react';
+import { Users, CheckCircle, AlertTriangle } from 'lucide-react';
 import type { MappingStats as MappingStatsType } from '@/types/api';
 
 interface MappingStatsProps {
@@ -10,42 +10,37 @@ interface MappingStatsProps {
 export const MappingStats: React.FC<MappingStatsProps> = ({ stats, isLoading }) => {
     const statCards = [
         {
-            label: 'Total Users',
-            value: stats?.total_users ?? 0,
+            label: 'Total Machine Users',
+            value: stats?.total_machine_users ?? 0,
             icon: Users,
             color: 'text-blue-600',
             bgColor: 'bg-blue-50',
+            percentage: undefined as number | undefined,
         },
         {
             label: 'Mapped',
-            value: stats?.mapped ?? 0,
+            value: stats?.mapped_count ?? 0,
             icon: CheckCircle,
             color: 'text-green-600',
             bgColor: 'bg-green-50',
-            percentage: stats ? Math.round((stats.mapped / stats.total_users) * 100) : 0,
-        },
-        {
-            label: 'Pending',
-            value: stats?.pending ?? 0,
-            icon: Clock,
-            color: 'text-yellow-600',
-            bgColor: 'bg-yellow-50',
-            percentage: stats ? Math.round((stats.pending / stats.total_users) * 100) : 0,
+            percentage: stats?.mapping_rate ?? 0,
         },
         {
             label: 'Unmapped',
-            value: stats?.unmapped ?? 0,
+            value: stats?.unmapped_count ?? 0,
             icon: AlertTriangle,
             color: 'text-red-600',
             bgColor: 'bg-red-50',
-            percentage: stats ? Math.round((stats.unmapped / stats.total_users) * 100) : 0,
+            percentage: stats && stats.total_machine_users > 0
+                ? Math.round((stats.unmapped_count / stats.total_machine_users) * 100)
+                : 0,
         },
     ];
 
     if (isLoading) {
         return (
-            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-                {[...Array(4)].map((_, i) => (
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                {[...Array(3)].map((_, i) => (
                     <div key={i} className="bg-white border rounded-xl p-4 animate-pulse">
                         <div className="h-10 w-10 bg-gray-200 rounded-lg mb-3" />
                         <div className="h-6 w-16 bg-gray-200 rounded mb-1" />
@@ -57,7 +52,7 @@ export const MappingStats: React.FC<MappingStatsProps> = ({ stats, isLoading }) 
     }
 
     return (
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             {statCards.map((stat) => {
                 const Icon = stat.icon;
                 return (
@@ -69,7 +64,9 @@ export const MappingStats: React.FC<MappingStatsProps> = ({ stats, isLoading }) 
                         <div className="text-sm text-gray-600 flex items-center gap-2">
                             {stat.label}
                             {stat.percentage !== undefined && stat.percentage > 0 && (
-                                <span className={`text-xs ${stat.color}`}>({stat.percentage}%)</span>
+                                <span className={`text-xs font-medium ${stat.color}`}>
+                                    ({stat.percentage.toFixed(1)}%)
+                                </span>
                             )}
                         </div>
                     </div>

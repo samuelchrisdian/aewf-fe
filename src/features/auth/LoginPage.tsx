@@ -2,7 +2,7 @@ import React, { useState, useCallback, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Lock, User, Loader, Eye, EyeOff, GraduationCap, BookOpen, Users, Shield } from 'lucide-react';
 import { useAuth } from './hooks';
-import { notify } from '@/lib/notifications';
+import { notify } from '@/lib/notifications.tsx';
 
 const LoginPage = (): React.ReactElement => {
   const navigate = useNavigate();

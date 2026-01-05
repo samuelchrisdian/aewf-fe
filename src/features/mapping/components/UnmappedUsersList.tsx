@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { AlertCircle } from 'lucide-react';
 import { MappingSuggestionCard } from './MappingSuggestionCard';
 import type { MappingSuggestion } from '@/types/api';
@@ -24,14 +24,13 @@ export const UnmappedUsersList: React.FC<UnmappedUsersListProps> = ({
     onManualEdit,
     isVerifying = false,
 }) => {
-    const [filter, setFilter] = useState<'all' | 'pending' | 'verified' | 'rejected'>('all');
-
-    const filteredSuggestions = suggestions.filter(s => {
-        if (filter === 'all') return true;
-        return s.status === filter;
-    });
-
-    const pendingCount = suggestions.filter(s => s.status === 'pending').length;
+    // Debug: log suggestions to see what we're getting
+    React.useEffect(() => {
+        console.log('UnmappedUsersList - suggestions count:', suggestions?.length);
+        console.log('UnmappedUsersList - first suggestion:', suggestions?.[0]);
+        console.log('UnmappedUsersList - suggestion keys:', suggestions?.[0] ? Object.keys(suggestions[0]) : 'no data');
+        console.log('UnmappedUsersList - selectedIds:', Array.from(selectedIds));
+    }, [suggestions, selectedIds]);
 
     if (isLoading) {
         return (
@@ -57,62 +56,69 @@ export const UnmappedUsersList: React.FC<UnmappedUsersListProps> = ({
         );
     }
 
-    if (suggestions.length === 0) {
+    if (!suggestions || suggestions.length === 0) {
         return (
             <div className="bg-gray-50 border border-gray-200 rounded-xl p-8 text-center">
                 <AlertCircle className="w-12 h-12 text-gray-400 mx-auto mb-3" />
                 <h3 className="text-lg font-medium text-gray-900 mb-1">No mappings found</h3>
                 <p className="text-gray-600">
-                    Run auto-mapping to generate suggestions, or import machine users first.
+                    {suggestions === undefined || suggestions === null
+                        ? 'Loading data...'
+                        : 'Run auto-mapping to generate suggestions, or import machine users first.'}
                 </p>
             </div>
         );
     }
 
     return (
-        <div className="space-y-4">
-            {/* Filter Tabs */}
-            <div className="flex items-center gap-2 border-b pb-2">
-                {[
-                    { key: 'all', label: 'All', count: suggestions.length },
-                    { key: 'pending', label: 'Pending', count: pendingCount },
-                    { key: 'verified', label: 'Verified', count: suggestions.filter(s => s.status === 'verified').length },
-                    { key: 'rejected', label: 'Rejected', count: suggestions.filter(s => s.status === 'rejected').length },
-                ].map((tab) => (
-                    <button
-                        key={tab.key}
-                        onClick={() => setFilter(tab.key as typeof filter)}
-                        className={`px-3 py-1.5 text-sm font-medium rounded-lg transition ${filter === tab.key
-                                ? 'bg-primary text-white'
-                                : 'text-gray-600 hover:bg-gray-100'
-                            }`}
-                    >
-                        {tab.label} ({tab.count})
-                    </button>
-                ))}
-            </div>
-
+        <div className="space-y-3">
             {/* Suggestion Cards */}
-            <div className="space-y-2">
-                {filteredSuggestions.map((suggestion) => (
+            {suggestions.map((suggestion, index) => {
+                // Try multiple possible ID fields from API
+                const itemId = suggestion?.id
+                    || suggestion?.mapping_id
+                    || suggestion?.machine_user?.machine_user_id
+                    || index;
+
+                const isSelected = selectedIds.has(itemId);
+
+                // Log for debugging
+                if (index === 0) {
+                    console.log('First item ID resolution:', {
+                        'suggestion.id': suggestion?.id,
+                        'suggestion.mapping_id': suggestion?.mapping_id,
+                        'machine_user_id': suggestion?.machine_user?.machine_user_id,
+                        'using itemId': itemId,
+                        'suggestion keys': suggestion ? Object.keys(suggestion) : 'none'
+                    });
+                }
+
+                // Create wrapper for onSelect to ensure we use the correct ID
+                const handleSelect = (receivedId: number, selected: boolean) => {
+                    console.log('Checkbox clicked:', {
+                        itemId,
+                        selected,
+                        receivedId,
+                        suggestionId: suggestion?.id,
+                        allKeys: suggestion ? Object.keys(suggestion) : 'none'
+                    });
+                    onSelectionChange(itemId, selected);
+                };
+
+                return (
                     <MappingSuggestionCard
-                        key={suggestion.id}
+                        key={itemId}
                         suggestion={suggestion}
-                        isSelected={selectedIds.has(suggestion.id)}
-                        onSelect={onSelectionChange}
+                        isSelected={isSelected}
+                        onSelect={handleSelect}
                         onVerify={onVerify}
                         onReject={onReject}
                         onManualEdit={onManualEdit}
                         isVerifying={isVerifying}
+                        showCheckbox={!suggestion?.is_mapped}
                     />
-                ))}
-            </div>
-
-            {filteredSuggestions.length === 0 && (
-                <div className="text-center py-8 text-gray-500">
-                    No {filter} mappings found.
-                </div>
-            )}
+                );
+            })}
         </div>
     );
 };

@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { FileUploader } from './FileUploader';
 import { useImportMaster } from '../queries';
 import { Download, CheckCircle, AlertCircle } from 'lucide-react';
-import { notify } from '@/lib/notifications';
+import { notify } from '@/lib/notifications.tsx';
 
 interface ImportMasterStepProps {
     onNext: () => void;

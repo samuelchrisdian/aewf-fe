@@ -7,7 +7,7 @@ import {
   useDeleteMachine,
 } from './queries';
 import { Plus, Edit2, Trash2, Server, MapPin, Circle, Users, X } from 'lucide-react';
-import { notify } from '@/lib/notifications';
+import { notify } from '@/lib/notifications.tsx';
 
 export const MachinesPage = (): React.ReactElement => {
   const [statusFilter, setStatusFilter] = useState<string>('');

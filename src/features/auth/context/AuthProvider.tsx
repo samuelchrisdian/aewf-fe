@@ -1,7 +1,7 @@
 import React, { createContext, useReducer, useEffect, useCallback, ReactNode } from 'react';
 import { User, AuthState, LoginRequest } from '../models';
 import { useLogin as useLoginMutation, useLogout as useLogoutMutation, useCurrentUser } from '../api';
-import { notify } from '@/lib/notifications';
+import { notify } from '@/lib/notifications.tsx';
 
 export interface AuthContextType extends AuthState {
   login: (credentials: LoginRequest) => Promise<void>;
