@@ -51,8 +51,8 @@ class ApiClient {
 
         // Skip token refresh for login/auth endpoints
         const isAuthEndpoint = originalRequest.url?.includes('/auth/login') ||
-                              originalRequest.url?.includes('/auth/refresh') ||
-                              originalRequest.url?.includes('/auth/register');
+          originalRequest.url?.includes('/auth/refresh') ||
+          originalRequest.url?.includes('/auth/register');
 
         // If 401 and not already retried and NOT from auth endpoints, try to refresh token
         if (error.response?.status === 401 && !originalRequest._retry && !isAuthEndpoint) {

@@ -1,6 +1,12 @@
-import React from 'react';
-import { Link2, ArrowRight, AlertTriangle, Users } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
+import React, { useMemo } from 'react';
+import { Link2, AlertTriangle, RefreshCw, CheckCircle, XCircle, AlertCircle, User } from 'lucide-react';
+import { notify } from '@/lib/notifications';
+import {
+    useMappingStats,
+    useUnmappedUsers,
+    useProcessMapping,
+    useVerifyMapping
+} from '../../mapping/queries';
 
 interface ImportMappingStepProps {
     onNext: () => void;
@@ -8,7 +14,50 @@ interface ImportMappingStepProps {
 }
 
 export const ImportMappingStep: React.FC<ImportMappingStepProps> = ({ onNext, onBack }) => {
-    const navigate = useNavigate();
+    // Queries
+    const { data: stats, isLoading: statsLoading, error: statsError } = useMappingStats();
+    const { data: suggestionsData, isLoading: suggestionsLoading, error: suggestionsError } = useUnmappedUsers();
+
+    // Mutations
+    const processMapping = useProcessMapping();
+    const verifyMapping = useVerifyMapping();
+
+    // Ensure suggestions is always an array
+    const suggestions = useMemo(() => {
+        if (!suggestionsData) return [];
+        if (Array.isArray(suggestionsData)) return suggestionsData;
+        return [];
+    }, [suggestionsData]);
+
+
+
+    // Handlers
+    const handleRunAutoMapping = async () => {
+        try {
+            await processMapping.mutateAsync();
+            notify.success('Auto-mapping berhasil dijalankan');
+        } catch (error: any) {
+            notify.error(error.message || 'Auto-mapping gagal');
+        }
+    };
+
+    const handleVerify = async (id: number) => {
+        try {
+            await verifyMapping.mutateAsync({ mapping_id: id, status: 'verified' });
+            notify.success('Mapping disetujui');
+        } catch (error: any) {
+            notify.error(error.message || 'Gagal menyetujui mapping');
+        }
+    };
+
+    const handleReject = async (id: number) => {
+        try {
+            await verifyMapping.mutateAsync({ mapping_id: id, status: 'rejected' });
+            notify.success('Mapping ditolak');
+        } catch (error: any) {
+            notify.error(error.message || 'Gagal menolak mapping');
+        }
+    };
 
     return (
         <div className="space-y-6">
@@ -37,45 +86,151 @@ export const ImportMappingStep: React.FC<ImportMappingStepProps> = ({ onNext, on
                 </div>
             </div>
 
-            {/* Mapping Actions */}
-            <div className="grid md:grid-cols-2 gap-4">
-                <div className="bg-white border rounded-lg p-5 hover:shadow-md transition">
-                    <div className="flex items-center gap-3 mb-3">
+            {/* Error Banner */}
+            {(statsError || suggestionsError) && (
+                <div className="bg-red-50 border border-red-200 rounded-lg p-4 flex items-start gap-3">
+                    <AlertCircle className="w-5 h-5 text-red-600 mt-0.5" />
+                    <div>
+                        <p className="text-sm font-medium text-red-900">Gagal memuat data mapping</p>
+                        <p className="text-sm text-red-800">
+                            Pastikan backend berjalan dengan benar.
+                        </p>
+                    </div>
+                </div>
+            )}
+
+            {/* Stats Summary */}
+            {stats && (
+                <div className="grid grid-cols-3 gap-4">
+                    <div className="bg-green-50 border border-green-200 rounded-lg p-4 text-center">
+                        <p className="text-2xl font-bold text-green-700">{stats.mapped || 0}</p>
+                        <p className="text-sm text-green-600">Terverifikasi</p>
+                    </div>
+                    <div className="bg-amber-50 border border-amber-200 rounded-lg p-4 text-center">
+                        <p className="text-2xl font-bold text-amber-700">{stats.pending || 0}</p>
+                        <p className="text-sm text-amber-600">Pending</p>
+                    </div>
+                    <div className="bg-red-50 border border-red-200 rounded-lg p-4 text-center">
+                        <p className="text-2xl font-bold text-red-700">{stats.unmapped || 0}</p>
+                        <p className="text-sm text-red-600">Belum Mapping</p>
+                    </div>
+                </div>
+            )}
+
+            {/* Auto Mapping Action */}
+            <div className="bg-white border rounded-lg p-4">
+                <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
                         <div className="w-10 h-10 bg-primary/10 rounded-lg flex items-center justify-center">
                             <Link2 className="w-5 h-5 text-primary" />
                         </div>
-                        <h4 className="font-medium text-gray-900">Auto Mapping</h4>
-                    </div>
-                    <p className="text-sm text-gray-600 mb-4">
-                        Sistem akan mencocokkan nama mesin dengan nama siswa menggunakan fuzzy logic.
-                    </p>
-                    <button
-                        onClick={() => navigate('/mapping')}
-                        className="w-full px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary/90 transition text-sm font-medium flex items-center justify-center gap-2"
-                    >
-                        Buka Halaman Mapping
-                        <ArrowRight className="w-4 h-4" />
-                    </button>
-                </div>
-
-                <div className="bg-white border rounded-lg p-5 hover:shadow-md transition">
-                    <div className="flex items-center gap-3 mb-3">
-                        <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center">
-                            <Users className="w-5 h-5 text-blue-600" />
+                        <div>
+                            <h4 className="font-medium text-gray-900">Auto Mapping</h4>
+                            <p className="text-sm text-gray-600">
+                                Sistem akan mencocokkan nama mesin dengan nama siswa menggunakan fuzzy logic.
+                            </p>
                         </div>
-                        <h4 className="font-medium text-gray-900">Lihat Status</h4>
                     </div>
-                    <p className="text-sm text-gray-600 mb-4">
-                        Cek statistik mapping: berapa user yang sudah ter-mapping dan yang masih pending.
-                    </p>
                     <button
-                        onClick={() => navigate('/mapping')}
-                        className="w-full px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition text-sm font-medium flex items-center justify-center gap-2"
+                        onClick={handleRunAutoMapping}
+                        disabled={processMapping.isPending}
+                        className="px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary/90 transition text-sm font-medium flex items-center gap-2 disabled:opacity-50"
                     >
-                        Lihat Statistik Mapping
-                        <ArrowRight className="w-4 h-4" />
+                        <RefreshCw className={`w-4 h-4 ${processMapping.isPending ? 'animate-spin' : ''}`} />
+                        {processMapping.isPending ? 'Processing...' : 'Jalankan Auto Mapping'}
                     </button>
                 </div>
+            </div>
+
+            {/* Unmapped Users Table */}
+            <div className="bg-white border rounded-lg p-4">
+                <h4 className="font-medium text-gray-900 mb-4 flex items-center gap-2">
+                    <User className="w-5 h-5 text-amber-600" />
+                    User Belum Ter-mapping ({suggestions.length})
+                </h4>
+                {statsLoading || suggestionsLoading ? (
+                    <div className="text-center py-6 text-gray-500">Memuat data...</div>
+                ) : suggestions.length === 0 ? (
+                    <div className="text-center py-6 text-green-600">
+                        ✓ Semua user sudah ter-mapping!
+                    </div>
+                ) : (
+                    <div className="overflow-x-auto">
+                        <table className="w-full text-sm">
+                            <thead className="bg-gray-50">
+                                <tr>
+                                    <th className="px-4 py-2 text-left font-medium text-gray-700">ID Mesin</th>
+                                    <th className="px-4 py-2 text-left font-medium text-gray-700">Nama Mesin</th>
+                                    <th className="px-4 py-2 text-left font-medium text-gray-700">Department</th>
+                                    <th className="px-4 py-2 text-left font-medium text-gray-700">Suggested NIS</th>
+                                    <th className="px-4 py-2 text-left font-medium text-gray-700">Suggested Name</th>
+                                    <th className="px-4 py-2 text-left font-medium text-gray-700">Confidence</th>
+                                    <th className="px-4 py-2 text-left font-medium text-gray-700">Aksi</th>
+                                </tr>
+                            </thead>
+                            <tbody className="divide-y">
+                                {suggestions.slice(0, 15).map((item) => (
+                                    <tr key={item.id} className="hover:bg-gray-50">
+                                        <td className="px-4 py-2 text-gray-900">
+                                            {item.machine_user?.machine_user_id || '-'}
+                                        </td>
+                                        <td className="px-4 py-2 text-gray-900">
+                                            {item.machine_user?.machine_user_name || '-'}
+                                        </td>
+                                        <td className="px-4 py-2 text-gray-600">
+                                            {item.machine_user?.department || '-'}
+                                        </td>
+                                        <td className="px-4 py-2 text-gray-600">
+                                            {item.suggested_student?.nis || '-'}
+                                        </td>
+                                        <td className="px-4 py-2 text-gray-600">
+                                            {item.suggested_student?.name || '-'}
+                                        </td>
+                                        <td className="px-4 py-2">
+                                            {item.confidence_score ? (
+                                                <span className={`px-2 py-0.5 rounded text-xs font-medium ${item.confidence_score >= 0.8 ? 'bg-green-100 text-green-700' :
+                                                    item.confidence_score >= 0.6 ? 'bg-amber-100 text-amber-700' :
+                                                        'bg-red-100 text-red-700'
+                                                    }`}>
+                                                    {(item.confidence_score * 100).toFixed(0)}%
+                                                </span>
+                                            ) : (
+                                                <span className="text-gray-400">-</span>
+                                            )}
+                                        </td>
+                                        <td className="px-4 py-2">
+                                            {item.suggested_student && (
+                                                <div className="flex gap-2">
+                                                    <button
+                                                        onClick={() => handleVerify(item.id)}
+                                                        disabled={verifyMapping.isPending}
+                                                        className="p-1.5 text-green-600 hover:bg-green-50 rounded transition"
+                                                        title="Setujui"
+                                                    >
+                                                        <CheckCircle className="w-4 h-4" />
+                                                    </button>
+                                                    <button
+                                                        onClick={() => handleReject(item.id)}
+                                                        disabled={verifyMapping.isPending}
+                                                        className="p-1.5 text-red-600 hover:bg-red-50 rounded transition"
+                                                        title="Tolak"
+                                                    >
+                                                        <XCircle className="w-4 h-4" />
+                                                    </button>
+                                                </div>
+                                            )}
+                                        </td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
+                        {suggestions.length > 15 && (
+                            <p className="text-sm text-gray-500 text-center py-2">
+                                ...dan {suggestions.length - 15} user lainnya
+                            </p>
+                        )}
+                    </div>
+                )}
             </div>
 
             {/* Note */}
