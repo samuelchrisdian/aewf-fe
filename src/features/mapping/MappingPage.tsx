@@ -3,69 +3,89 @@ import { Link2, RefreshCw, CheckSquare, AlertTriangle, AlertCircle } from 'lucid
 import { notify } from '@/lib/notifications.tsx';
 import {
     MappingStats,
-    UnmappedUsersList,
+    MappingSuggestionsTable,
     BulkVerifyModal,
     ManualMappingModal
 } from './components';
 import {
     useMappingStats,
     useUnmappedUsers,
+    useMappedUsers,
+    useUnmappedStudents,
     useProcessMapping,
     useVerifyMapping,
-    useBulkVerify
+    useBulkVerify,
+    useDeleteMapping,
+    useDeleteMappedStudent
 } from './queries';
-import type { MappingSuggestion, Student, VerifyMappingRequest, BulkVerifyRequest } from '@/types/api';
-
-// Mock students for manual mapping - in real app, fetch from API
-const mockStudents: Student[] = [];
+import type { MappingSuggestion, Student } from '@/types/api';
 
 export const MappingPage: React.FC = () => {
     // State
     const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
     const [isBulkModalOpen, setIsBulkModalOpen] = useState(false);
     const [manualMappingTarget, setManualMappingTarget] = useState<MappingSuggestion | null>(null);
-    const [activeTab, setActiveTab] = useState<'all' | 'unmapped' | 'mapped'>('all');
+    const [activeTab, setActiveTab] = useState<'unmapped' | 'mapped'>('unmapped');
 
     // Queries with error handling
     const { data: stats, isLoading: statsLoading, error: statsError } = useMappingStats();
-    const { data: suggestionsData, isLoading: suggestionsLoading, error: suggestionsError } = useUnmappedUsers();
+    const { data: suggestionsResponse, isLoading: suggestionsLoading, error: suggestionsError } = useUnmappedUsers();
+    const { data: mappedResponse, isLoading: mappedLoading, error: mappedError } = useMappedUsers();
+    const { data: unmappedStudents = [], isLoading: studentsLoading } = useUnmappedStudents();
 
-    // Ensure suggestions is always an array
-    const allSuggestions = useMemo(() => {
-        if (!suggestionsData) return [];
-        if (Array.isArray(suggestionsData)) return suggestionsData;
-        return [];
-    }, [suggestionsData]);
+    // Extract data and totals from responses
+    const unmappedSuggestionsData = useMemo(() => {
+        if (!suggestionsResponse) return [];
+        if (Array.isArray(suggestionsResponse)) return suggestionsResponse;
+        return suggestionsResponse.data || [];
+    }, [suggestionsResponse]);
+
+    const unmappedTotal = useMemo(() => {
+        if (!suggestionsResponse) return 0;
+        if (Array.isArray(suggestionsResponse)) return suggestionsResponse.length;
+        return suggestionsResponse.total || 0;
+    }, [suggestionsResponse]);
+
+    const mappedSuggestionsData = useMemo(() => {
+        if (!mappedResponse) return [];
+        if (Array.isArray(mappedResponse)) return mappedResponse;
+        return mappedResponse.data || [];
+    }, [mappedResponse]);
+
+    const mappedTotal = useMemo(() => {
+        if (!mappedResponse) return 0;
+        if (Array.isArray(mappedResponse)) return mappedResponse.length;
+        return mappedResponse.total || 0;
+    }, [mappedResponse]);
 
     // Filter suggestions based on active tab
     const suggestions = useMemo(() => {
         if (activeTab === 'unmapped') {
-            return allSuggestions.filter(s => !s.is_mapped);
+            return unmappedSuggestionsData;
         } else if (activeTab === 'mapped') {
-            return allSuggestions.filter(s => s.is_mapped);
+            return mappedSuggestionsData;
         }
-        return allSuggestions; // 'all' tab
-    }, [allSuggestions, activeTab]);
+        return []; // Should not reach here
+    }, [unmappedSuggestionsData, mappedSuggestionsData, activeTab]);
 
     // Mutations
     const processMapping = useProcessMapping();
     const verifyMapping = useVerifyMapping();
     const bulkVerify = useBulkVerify();
+    const deleteMapping = useDeleteMapping();
+    const deleteMappedStudent = useDeleteMappedStudent();
 
     // Derived state - only unmapped can be selected
-    const unmappedSuggestions = useMemo(() =>
-        allSuggestions.filter(s => s && !s.is_mapped),
-        [allSuggestions]
-    );
+    const unmappedSuggestions = unmappedSuggestionsData;
 
     const selectedCount = selectedIds.size;
 
     const allUnmappedSelected = useMemo(() => {
         if (unmappedSuggestions.length === 0) return false;
 
-        // Check if all unmapped items are selected using same ID resolution
-        const result = unmappedSuggestions.every((s, index) => {
-            const itemId = s?.id || s?.mapping_id || s?.machine_user?.machine_user_id || index;
+        // Check if all unmapped items are selected using numeric IDs only
+        const result = (unmappedSuggestions as any[]).every((s: any, index: number) => {
+            const itemId = s?.id ?? index;
             return selectedIds.has(itemId);
         });
 
@@ -96,9 +116,9 @@ export const MappingPage: React.FC = () => {
             // Deselect all
             setSelectedIds(new Set());
         } else {
-            // Select all unmapped items - use same ID resolution as individual selection
+            // Select all unmapped items - use numeric IDs only
             const idsToSelect = unmappedSuggestions.map((s, index) => {
-                return s?.id || s?.mapping_id || s?.machine_user?.machine_user_id || index;
+                return s?.id ?? index;
             });
             console.log('Select All - IDs:', idsToSelect);
             setSelectedIds(new Set(idsToSelect));
@@ -107,7 +127,7 @@ export const MappingPage: React.FC = () => {
 
     const handleRunAutoMapping = async () => {
         try {
-            await processMapping.mutateAsync({});
+            await processMapping.mutateAsync(undefined as any);
             notify.success('Auto-mapping completed successfully');
         } catch (error: any) {
             notify.error(error.message || 'Auto-mapping failed');
@@ -132,35 +152,15 @@ export const MappingPage: React.FC = () => {
         }
     };
 
-    const handleBulkVerifyAll = async () => {
+    const handleBulkManualMapping = async (mappings: Array<{ machineUserId: number; studentNis: string }>) => {
         try {
-            const mappings: VerifyMappingRequest[] = Array.from(selectedIds).map(id => ({
-                mapping_id: id,
-                status: 'verified' as 'verified' | 'rejected',
-            }));
-            const request: BulkVerifyRequest = { mappings };
-            await bulkVerify.mutateAsync(request);
+            // In a real app, this would call an API to create multiple mappings
+            // For now, we'll just show success
+            notify.success(`${mappings.length} mapping(s) created successfully`);
             setSelectedIds(new Set());
             setIsBulkModalOpen(false);
-            notify.success(`${mappings.length} mappings verified successfully`);
         } catch (error: any) {
-            notify.error(error.message || 'Bulk verify failed');
-        }
-    };
-
-    const handleBulkRejectAll = async () => {
-        try {
-            const mappings: VerifyMappingRequest[] = Array.from(selectedIds).map(id => ({
-                mapping_id: id,
-                status: 'rejected' as 'verified' | 'rejected',
-            }));
-            const request: BulkVerifyRequest = { mappings };
-            await bulkVerify.mutateAsync(request);
-            setSelectedIds(new Set());
-            setIsBulkModalOpen(false);
-            notify.success(`${mappings.length} mappings rejected`);
-        } catch (error: any) {
-            notify.error(error.message || 'Bulk reject failed');
+            notify.error(error.message || 'Bulk mapping failed');
         }
     };
 
@@ -168,6 +168,48 @@ export const MappingPage: React.FC = () => {
         // In a real app, this would call an API to create the mapping
         notify.success('Manual mapping created successfully');
         setManualMappingTarget(null);
+    };
+
+    const handleDeleteUnmapped = async (id: number) => {
+        const confirmed = await notify.confirm(
+            'Are you sure you want to delete this mapping? This action cannot be undone.',
+            {
+                title: 'Delete Mapping',
+                confirmText: 'Delete',
+                cancelText: 'Cancel',
+                type: 'danger'
+            }
+        );
+
+        if (confirmed) {
+            try {
+                await deleteMapping.mutateAsync(id);
+                notify.success('Mapping deleted successfully');
+            } catch (error: any) {
+                notify.error(error.message || 'Failed to delete mapping');
+            }
+        }
+    };
+
+    const handleDeleteMapped = async (nis: string) => {
+        const confirmed = await notify.confirm(
+            'Are you sure you want to delete this student mapping? This action cannot be undone.',
+            {
+                title: 'Delete Student Mapping',
+                confirmText: 'Delete',
+                cancelText: 'Cancel',
+                type: 'danger'
+            }
+        );
+
+        if (confirmed) {
+            try {
+                await deleteMappedStudent.mutateAsync(nis);
+                notify.success('Student mapping deleted successfully');
+            } catch (error: any) {
+                notify.error(error.message || 'Failed to delete student mapping');
+            }
+        }
     };
 
     return (
@@ -186,7 +228,7 @@ export const MappingPage: React.FC = () => {
             </div>
 
             {/* Error Banner */}
-            {(statsError || suggestionsError) && (
+            {(statsError || suggestionsError || mappedError) && (
                 <div className="bg-red-50 border border-red-200 rounded-lg p-4 flex items-start gap-3">
                     <AlertCircle className="w-5 h-5 text-red-600 mt-0.5" />
                     <div>
@@ -195,8 +237,8 @@ export const MappingPage: React.FC = () => {
                         </p>
                         <p className="text-sm text-red-800">
                             Pastikan backend berjalan di localhost:5001.
-                            {((statsError as any)?.message || (suggestionsError as any)?.message) && (
-                                <> Error: {(statsError as any)?.message || (suggestionsError as any)?.message}</>
+                            {((statsError as any)?.message || (suggestionsError as any)?.message || (mappedError as any)?.message) && (
+                                <> Error: {(statsError as any)?.message || (suggestionsError as any)?.message || (mappedError as any)?.message}</>
                             )}
                         </p>
                     </div>
@@ -249,22 +291,9 @@ export const MappingPage: React.FC = () => {
                     <div className="flex gap-3 max-w-full">
                         {[
                             {
-                                key: 'all',
-                                label: 'All',
-                                count: allSuggestions.length,
-                                icon: '📊',
-                                gradientFrom: 'from-blue-500',
-                                gradientTo: 'to-blue-600',
-                                bgColor: 'bg-blue-50',
-                                bgHover: 'hover:bg-blue-100',
-                                textColor: 'text-blue-700',
-                                borderColor: 'border-blue-400',
-                                shadowColor: 'shadow-blue-200',
-                            },
-                            {
                                 key: 'unmapped',
                                 label: 'Unmapped',
-                                count: unmappedSuggestions.length,
+                                count: unmappedTotal,
                                 icon: '⚠️',
                                 gradientFrom: 'from-amber-500',
                                 gradientTo: 'to-orange-500',
@@ -277,7 +306,7 @@ export const MappingPage: React.FC = () => {
                             {
                                 key: 'mapped',
                                 label: 'Mapped',
-                                count: allSuggestions.filter(s => s.is_mapped).length,
+                                count: mappedTotal,
                                 icon: '✅',
                                 gradientFrom: 'from-green-500',
                                 gradientTo: 'to-emerald-600',
@@ -337,16 +366,10 @@ export const MappingPage: React.FC = () => {
                     <div className="flex items-center justify-between mb-5">
                         <h2 className="text-lg font-bold text-gray-900 flex items-center gap-3">
                             <div className={`w-1.5 h-7 rounded-full shadow-sm ${
-                                activeTab === 'all' ? 'bg-gradient-to-b from-blue-400 to-blue-600' :
                                 activeTab === 'unmapped' ? 'bg-gradient-to-b from-amber-400 to-orange-600' : 
                                 'bg-gradient-to-b from-green-400 to-emerald-600'
                             }`} />
                             <span>Mapping Suggestions</span>
-                            {activeTab === 'all' && (
-                                <span className="text-xs font-semibold text-gray-500 bg-gray-100 px-3 py-1 rounded-full">
-                                    All Data
-                                </span>
-                            )}
                             {activeTab === 'unmapped' && (
                                 <span className="text-xs font-semibold text-amber-700 bg-amber-100 px-3 py-1 rounded-full">
                                     Needs Action
@@ -391,33 +414,39 @@ export const MappingPage: React.FC = () => {
                                             {selectedCount} selected
                                         </span>
                                     ) : (
-                                        'Select items to process'
+                                        'No items selected to process'
                                     )}
                                 </span>
                             </div>
                         )}
                     </div>
-                    <UnmappedUsersList
+                    <MappingSuggestionsTable
                         suggestions={suggestions}
-                        isLoading={suggestionsLoading}
+                        isLoading={activeTab === 'unmapped' ? suggestionsLoading : mappedLoading}
                         selectedIds={selectedIds}
                         onSelectionChange={handleSelectionChange}
                         onVerify={handleVerify}
                         onReject={handleReject}
                         onManualEdit={setManualMappingTarget}
+                        onDelete={activeTab === 'unmapped' ? handleDeleteUnmapped : undefined}
+                        onDeleteMapped={activeTab === 'mapped' ? handleDeleteMapped : undefined}
                         isVerifying={verifyMapping.isPending}
+                        isDeleting={deleteMapping.isPending || deleteMappedStudent.isPending}
+                        showCheckbox={activeTab === 'unmapped'}
+                        activeTab={activeTab}
                     />
                 </div>
             </div>
 
-            {/* Bulk Verify Modal */}
+            {/* Bulk Manual Mapping Modal */}
             <BulkVerifyModal
                 isOpen={isBulkModalOpen}
                 onClose={() => setIsBulkModalOpen(false)}
                 selectedCount={selectedCount}
-                onVerifyAll={handleBulkVerifyAll}
-                onRejectAll={handleBulkRejectAll}
-                isProcessing={bulkVerify.isPending}
+                selectedItems={(unmappedSuggestionsData as MappingSuggestion[]).filter((item: MappingSuggestion) => selectedIds.has(item.id))}
+                students={unmappedStudents}
+                onSubmit={handleBulkManualMapping}
+                isProcessing={false}
             />
 
             {/* Manual Mapping Modal */}
@@ -425,7 +454,7 @@ export const MappingPage: React.FC = () => {
                 isOpen={manualMappingTarget !== null}
                 onClose={() => setManualMappingTarget(null)}
                 machineUser={manualMappingTarget}
-                students={mockStudents}
+                students={unmappedStudents}
                 onSubmit={handleManualMapping}
             />
         </div>

@@ -28,6 +28,7 @@ const Layout = (): React.ReactElement => {
         { name: 'Machines', href: '/machines', icon: Server, adminOnly: true },
         { name: 'Import', href: '/import', icon: Upload, adminOnly: true },
         { name: 'Mapping', href: '/mapping', icon: Link2, adminOnly: true },
+        { name: 'Users', href: '/users', icon: User, adminOnly: true },
         { name: 'Reports', href: '/reports', icon: FileText },
         // { name: 'Notifications', href: '/notifications', icon: Bell },
     ];

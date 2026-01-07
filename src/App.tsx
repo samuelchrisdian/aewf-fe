@@ -7,8 +7,9 @@ import LoginPage from './features/auth/LoginPage';
 
 const OverviewPage = lazy(() => import('./features/overview'));
 const AlertsFeature = lazy(() => import('./features/alerts').then(module => ({ default: module.AlertsFeature })));
-const StudentDetailFeature = lazy(() => import('./features/alerts').then(module => ({ default: module.StudentDetailFeature })));
+const AlertStudentDetailPage = lazy(() => import('./features/alerts').then(module => ({ default: module.StudentDetailFeature })));
 const StudentsPage = lazy(() => import('./features/students').then(module => ({ default: module.StudentsPage })));
+const StudentDetailPage = lazy(() => import('./features/students').then(module => ({ default: module.StudentDetailPage })));
 const AttendancePage = lazy(() => import('./features/attendance').then(module => ({ default: module.AttendancePage })));
 const AnalyticsPage = lazy(() => import('./features/analytics').then(module => ({ default: module.AnalyticsPage })));
 const ClassesPage = lazy(() => import('./features/classes').then(module => ({ default: module.ClassesPage })));
@@ -17,6 +18,7 @@ const ImportPage = lazy(() => import('./features/import').then(module => ({ defa
 const MappingPage = lazy(() => import('./features/mapping').then(module => ({ default: module.MappingPage })));
 const ReportsPage = lazy(() => import('./features/reports').then(module => ({ default: module.ReportsPage })));
 const NotificationsPage = lazy(() => import('./features/notifications').then(module => ({ default: module.NotificationsPage })));
+const UsersPage = lazy(() => import('./features/users').then(module => ({ default: module.UsersPage })));
 
 function App(): React.ReactElement {
     return (
@@ -52,7 +54,7 @@ function App(): React.ReactElement {
                             path="alerts/:nis"
                             element={
                                 <Suspense fallback={<div className="p-10 text-center">Loading...</div>}>
-                                    <StudentDetailFeature />
+                                    <AlertStudentDetailPage />
                                 </Suspense>
                             }
                         />
@@ -61,6 +63,14 @@ function App(): React.ReactElement {
                             element={
                                 <Suspense fallback={<div className="p-10 text-center">Loading...</div>}>
                                     <StudentsPage />
+                                </Suspense>
+                            }
+                        />
+                        <Route
+                            path="students/:nis"
+                            element={
+                                <Suspense fallback={<div className="p-10 text-center">Loading...</div>}>
+                                    <StudentDetailPage />
                                 </Suspense>
                             }
                         />
@@ -125,6 +135,14 @@ function App(): React.ReactElement {
                             element={
                                 <Suspense fallback={<div className="p-10 text-center">Loading...</div>}>
                                     <NotificationsPage />
+                                </Suspense>
+                            }
+                        />
+                        <Route
+                            path="users"
+                            element={
+                                <Suspense fallback={<div className="p-10 text-center">Loading...</div>}>
+                                    <UsersPage />
                                 </Suspense>
                             }
                         />
