@@ -161,9 +161,10 @@ export const ImportMappingStep: React.FC<ImportMappingStepProps> = ({ onNext, on
                                 <tr>
                                     <th className="px-4 py-2 text-left font-medium text-gray-700">ID Mesin</th>
                                     <th className="px-4 py-2 text-left font-medium text-gray-700">Nama Mesin</th>
-                                    <th className="px-4 py-2 text-left font-medium text-gray-700">Department</th>
+                                    <th className="px-4 py-2 text-left font-medium text-gray-700">Kode Mesin</th>
                                     <th className="px-4 py-2 text-left font-medium text-gray-700">Suggested NIS</th>
                                     <th className="px-4 py-2 text-left font-medium text-gray-700">Suggested Name</th>
+                                    <th className="px-4 py-2 text-left font-medium text-gray-700">Kelas</th>
                                     <th className="px-4 py-2 text-left font-medium text-gray-700">Confidence</th>
                                     <th className="px-4 py-2 text-left font-medium text-gray-700">Aksi</th>
                                 </tr>
@@ -178,13 +179,16 @@ export const ImportMappingStep: React.FC<ImportMappingStepProps> = ({ onNext, on
                                             {item.machine_user?.machine_user_name || '-'}
                                         </td>
                                         <td className="px-4 py-2 text-gray-600">
-                                            {item.machine_user?.department || '-'}
+                                            {(item.machine_user as any)?.machine_code || '-'}
                                         </td>
                                         <td className="px-4 py-2 text-gray-600">
                                             {item.suggested_student?.nis || '-'}
                                         </td>
                                         <td className="px-4 py-2 text-gray-600">
                                             {item.suggested_student?.name || '-'}
+                                        </td>
+                                        <td className="px-4 py-2 text-gray-600">
+                                            {(item.suggested_student as any)?.class_id || '-'}
                                         </td>
                                         <td className="px-4 py-2">
                                             {item.confidence_score ? (

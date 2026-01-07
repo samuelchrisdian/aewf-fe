@@ -19,7 +19,17 @@ export function useMappingStats() {
         queryKey: MAPPING_STATS_KEY,
         queryFn: async () => {
             const response = await apiClient.get<any>('/api/v1/mapping/stats');
-            return (response.data || response) as MappingStats;
+            const data = response.data || response;
+
+            // Transform API response to match MappingStats type
+            // API returns: total_machine_users, mapped_count, suggested_count, unmapped_count, verified_count
+            // Frontend expects: total_users, mapped, pending, unmapped
+            return {
+                total_users: data.total_machine_users ?? data.total_users ?? 0,
+                mapped: data.verified_count ?? data.mapped_count ?? data.mapped ?? 0,
+                pending: data.suggested_count ?? data.pending ?? 0,
+                unmapped: data.unmapped_count ?? data.unmapped ?? 0,
+            } as MappingStats;
         },
         staleTime: 1000 * 60 * 2, // 2 minutes
     });
@@ -31,10 +41,41 @@ export function useUnmappedUsers() {
         queryKey: UNMAPPED_USERS_KEY,
         queryFn: async () => {
             const response = await apiClient.get<any>('/api/v1/mapping/unmapped');
-            if (Array.isArray(response)) return response as MappingSuggestion[];
-            if (response.data && Array.isArray(response.data)) return response.data as MappingSuggestion[];
-            if (response.unmapped && Array.isArray(response.unmapped)) return response.unmapped as MappingSuggestion[];
-            return [];
+
+            // Parse the response to get the unmapped array
+            let unmappedArray: any[] = [];
+            if (Array.isArray(response)) {
+                unmappedArray = response;
+            } else if (response.data && Array.isArray(response.data)) {
+                unmappedArray = response.data;
+            } else if (response.unmapped && Array.isArray(response.unmapped)) {
+                unmappedArray = response.unmapped;
+            }
+
+            // Transform the API response format to match MappingSuggestion type
+            // API returns: { machine_user: {...}, suggested_matches: [...] }
+            // Frontend expects: { id, machine_user, suggested_student, confidence_score, status }
+            return unmappedArray.map((item, index) => {
+                const topMatch = item.suggested_matches?.[0];
+                return {
+                    id: item.machine_user?.id || index,
+                    machine_user: {
+                        id: item.machine_user?.id,
+                        machine_user_id: item.machine_user?.machine_user_id,
+                        machine_user_name: item.machine_user?.machine_user_name,
+                        machine_code: item.machine_user?.machine_code,
+                        department: item.machine_user?.department || item.machine_user?.machine_code,
+                    },
+                    suggested_student: topMatch?.student ? {
+                        nis: topMatch.student.nis,
+                        name: topMatch.student.name,
+                        class_id: topMatch.student.class_id,
+                    } : null,
+                    confidence_score: topMatch?.confidence_score ? topMatch.confidence_score / 100 : 0,
+                    status: 'pending' as const,
+                    all_matches: item.suggested_matches, // Keep all matches for display if needed
+                } as MappingSuggestion & { all_matches?: any[] };
+            });
         },
         staleTime: 1000 * 60 * 2,
     });
@@ -61,7 +102,9 @@ export function useProcessMapping() {
 
     return useMutation({
         mutationFn: async () => {
-            return apiClient.post<ProcessMappingResponse>('/api/v1/mapping/process');
+            // Send empty object to ensure Content-Type: application/json header is included
+            // This fixes 415 Unsupported Media Type error
+            return apiClient.post<ProcessMappingResponse>('/api/v1/mapping/process', {});
         },
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: MAPPING_STATS_KEY });
