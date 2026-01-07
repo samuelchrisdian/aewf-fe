@@ -72,23 +72,68 @@ export default function DataTable<T>({ columns, data, initialState = {}, noDataM
             {table.getRowModel().rows.length === 0 ? (
                 <div className="p-10 text-center text-gray-500">{noDataMessage}</div>
             ) : (
-                <div className="p-4 flex items-center justify-between border-t border-gray-100">
-                    <div className="text-sm text-gray-600">
-                        Page <strong>{table.getState().pagination.pageIndex + 1}</strong> of <strong>{table.getPageCount()}</strong>
+                <div className="px-6 py-4 flex flex-col sm:flex-row items-center justify-between gap-4 border-t border-gray-100 bg-gray-50">
+                    <div className="text-sm text-gray-600 font-medium">
+                        Showing <strong className="text-gray-900">{table.getState().pagination.pageIndex * table.getState().pagination.pageSize + 1}</strong> to{' '}
+                        <strong className="text-gray-900">
+                            {Math.min((table.getState().pagination.pageIndex + 1) * table.getState().pagination.pageSize, table.getRowModel().rows.length)}
+                        </strong>{' '}
+                        of <strong className="text-gray-900">{data.length}</strong> entries
                     </div>
 
-                    <div className="flex items-center space-x-2">
-                        <button onClick={() => table.setPageIndex(0)} disabled={!table.getCanPreviousPage()} className="px-3 py-1 border rounded">«</button>
-                        <button onClick={() => table.previousPage()} disabled={!table.getCanPreviousPage()} className="px-3 py-1 border rounded">Prev</button>
-                        <button onClick={() => table.nextPage()} disabled={!table.getCanNextPage()} className="px-3 py-1 border rounded">Next</button>
-                        <button onClick={() => table.setPageIndex(table.getPageCount() - 1)} disabled={!table.getCanNextPage()} className="px-3 py-1 border rounded">»</button>
+                    <div className="flex items-center gap-3">
+                        {/* First Page Button */}
+                        <button
+                            onClick={() => table.setPageIndex(0)}
+                            disabled={!table.getCanPreviousPage()}
+                            className="px-3 py-2 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 hover:border-gray-400 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-white disabled:hover:border-gray-300 transition-all shadow-sm hover:shadow"
+                            title="First Page"
+                        >
+                            «
+                        </button>
 
+                        {/* Previous Button */}
+                        <button
+                            onClick={() => table.previousPage()}
+                            disabled={!table.getCanPreviousPage()}
+                            className="px-4 py-2 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 hover:border-gray-400 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-white disabled:hover:border-gray-300 transition-all shadow-sm hover:shadow"
+                        >
+                            Previous
+                        </button>
+
+                        {/* Page Indicator */}
+                        <div className="px-4 py-2 bg-primary/10 border border-primary/20 rounded-lg">
+                            <span className="text-sm font-bold text-primary">
+                                Page {table.getState().pagination.pageIndex + 1} of {table.getPageCount()}
+                            </span>
+                        </div>
+
+                        {/* Next Button */}
+                        <button
+                            onClick={() => table.nextPage()}
+                            disabled={!table.getCanNextPage()}
+                            className="px-4 py-2 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 hover:border-gray-400 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-white disabled:hover:border-gray-300 transition-all shadow-sm hover:shadow"
+                        >
+                            Next
+                        </button>
+
+                        {/* Last Page Button */}
+                        <button
+                            onClick={() => table.setPageIndex(table.getPageCount() - 1)}
+                            disabled={!table.getCanNextPage()}
+                            className="px-3 py-2 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 hover:border-gray-400 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-white disabled:hover:border-gray-300 transition-all shadow-sm hover:shadow"
+                            title="Last Page"
+                        >
+                            »
+                        </button>
+
+                        {/* Page Size Selector */}
                         <select
                             value={table.getState().pagination.pageSize}
                             onChange={(e) => table.setPageSize(Number(e.target.value))}
-                            className="ml-2 border rounded px-2 py-1 text-sm"
+                            className="ml-2 px-3 py-2 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 hover:border-gray-400 focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent cursor-pointer transition-all shadow-sm"
                         >
-                            {[10, 25, 50].map((size) => (
+                            {[10, 25, 50, 100].map((size) => (
                                 <option key={size} value={size}>
                                     {size} / page
                                 </option>

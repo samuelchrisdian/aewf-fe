@@ -486,3 +486,32 @@ export interface ProcessMappingResponse {
   };
 }
 
+// ============ User Management Types ============
+export interface SystemUser {
+  id: number;
+  username: string;
+  email: string;
+  role: 'admin' | 'teacher' | 'staff';
+  is_active: boolean;
+  permissions: string[];
+  created_at: string | null;
+  updated_at: string | null;
+  last_login: string | null;
+}
+
+export interface CreateUserRequest {
+  username: string;
+  email: string;
+  password: string;
+  role: 'admin' | 'teacher' | 'staff';
+  permissions?: string[];
+  is_active?: boolean;
+}
+
+export interface UpdateUserRequest {
+  email?: string;
+  role?: 'admin' | 'teacher' | 'staff';
+  permissions?: string[];
+  is_active?: boolean;
+  password?: string;
+}

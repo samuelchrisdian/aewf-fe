@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { X, Search, User } from 'lucide-react';
 import type { MappingSuggestion, Student } from '@/types/api';
 
@@ -21,6 +21,13 @@ export const ManualMappingModal: React.FC<ManualMappingModalProps> = ({
 }) => {
     const [searchTerm, setSearchTerm] = useState('');
     const [selectedStudent, setSelectedStudent] = useState<string | null>(null);
+
+    // Auto-select suggested student when modal opens
+    useEffect(() => {
+        if (isOpen && machineUser?.suggested_student) {
+            setSelectedStudent(machineUser.suggested_student.nis);
+        }
+    }, [isOpen, machineUser]);
 
     if (!isOpen || !machineUser) return null;
 
