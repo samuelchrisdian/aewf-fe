@@ -191,7 +191,8 @@ export interface Alert {
   class_name?: string;
   risk_level: 'low' | 'medium' | 'high' | 'critical';
   risk_score: number;
-  status: 'open' | 'in_progress' | 'resolved' | 'dismissed';
+  // Align with backend: pending/acknowledged/resolved
+  status: 'pending' | 'acknowledged' | 'resolved' | 'dismissed' | 'open' | 'in_progress';
   message?: string;
   factors?: string[];
   model_version?: string;
@@ -204,9 +205,10 @@ export interface Alert {
 }
 
 export interface AlertsParams {
-  status?: 'open' | 'in_progress' | 'resolved' | 'dismissed';
+  status?: 'pending' | 'acknowledged' | 'resolved' | 'dismissed' | 'open' | 'in_progress';
   class_id?: number;
   risk_level?: 'low' | 'medium' | 'high' | 'critical';
+  student_nis?: string;
   page?: number;
   per_page?: number;
 }
