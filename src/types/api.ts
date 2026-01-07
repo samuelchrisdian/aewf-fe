@@ -157,6 +157,12 @@ export interface StudentAttendanceParams {
 }
 
 // ============ Risk Management Types ============
+export interface DataQuality {
+  recording_completeness: number;
+  is_low_quality: boolean;
+  longest_gap_days: number;
+}
+
 export interface RiskStudent {
   nis: string;
   name: string;
@@ -166,6 +172,8 @@ export interface RiskStudent {
   risk_score: number;
   probability?: number;
   factors?: string[];
+  model_version?: string;
+  data_quality?: DataQuality;
   last_updated?: string;
 }
 
@@ -186,6 +194,8 @@ export interface Alert {
   status: 'open' | 'in_progress' | 'resolved' | 'dismissed';
   message?: string;
   factors?: string[];
+  model_version?: string;
+  data_quality?: DataQuality;
   created_at: string;
   updated_at?: string;
   resolved_at?: string;
@@ -213,6 +223,8 @@ export interface RiskHistory {
   risk_score: number;
   risk_level: 'low' | 'medium' | 'high' | 'critical';
   factors?: string[];
+  model_version?: string;
+  data_quality?: DataQuality;
 }
 
 export interface RecalculateRiskRequest {

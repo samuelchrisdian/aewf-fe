@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useMemo, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useStudentQuery, useRiskHistoryQuery, useStudentRiskQuery, useStudentAttendanceQuery } from './queries';
 import { Chart as ChartJS, CategoryScale, LinearScale, PointElement, LineElement, BarElement, Title, Tooltip, Legend } from 'chart.js';
@@ -16,7 +16,20 @@ const StudentDetailPage = (): React.ReactElement => {
   const { data: student, isLoading: studentLoading } = useStudentQuery(nis);
   const { data: riskProfile, isLoading: riskLoading } = useStudentRiskQuery(nis);
   const { data: riskHistoryData, isLoading: historyLoading } = useRiskHistoryQuery(nis);
-  const { data: attendanceData, isLoading: attendanceLoading } = useStudentAttendanceQuery(nis);
+  const [selectedMonth, setSelectedMonth] = useState<string>(() => {
+    const now = new Date();
+    return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+  });
+  const { data: attendanceData, isLoading: attendanceLoading } = useStudentAttendanceQuery(nis, { month: selectedMonth });
+
+  const monthTitle = useMemo(() => {
+    try {
+      const [y, m] = selectedMonth.split('-').map(Number);
+      return new Date(y, (m || 1) - 1).toLocaleDateString('id-ID', { month: 'long', year: 'numeric' });
+    } catch {
+      return 'Monthly';
+    }
+  }, [selectedMonth]);
 
   if (studentLoading || riskLoading || historyLoading || attendanceLoading) {
     return (
@@ -176,18 +189,17 @@ const StudentDetailPage = (): React.ReactElement => {
               Rule Override
             </div>
           )}
+          {riskProfile?.data_quality?.is_low_quality && (
+            <div className="px-3 py-1 rounded-full bg-amber-100 border border-amber-200 text-amber-700 text-xs font-semibold flex items-center">
+              <AlertTriangle className="w-3 h-3 mr-1" /> Low Data Quality
+            </div>
+          )}
         </div>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="lg:col-span-2 space-y-6">
-          {/* Attendance Heatmap */}
-          <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
-            <HeatmapChart
-              attendanceData={attendanceData || []}
-              title="Student Attendance Heatmap (Last 30 Days)"
-            />
-          </div>
+          {/* Attendance Heatmap moved to sidebar */}
 
           {/* Risk Factors from ML - Based on explanation_text */}
           <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
@@ -298,10 +310,32 @@ const StudentDetailPage = (): React.ReactElement => {
                   <span className="text-gray-600">Total School Days:</span>
                   <span className="font-bold text-gray-900">{factors.total_days} days</span>
                 </div>
+                {(factors.recording_completeness !== undefined || riskProfile?.data_quality?.recording_completeness !== undefined) && (
+                  <div className="flex justify-between text-sm mt-1">
+                    <span className="text-gray-600">Recording Completeness:</span>
+                    <span className={`font-bold ${(factors.recording_completeness || riskProfile?.data_quality?.recording_completeness || 0) < 0.7 ? 'text-amber-600' : 'text-gray-900'}`}>
+                      {(((factors.recording_completeness ?? riskProfile?.data_quality?.recording_completeness) || 0) * 100).toFixed(1)}%
+                    </span>
+                  </div>
+                )}
+                {(factors.longest_gap_days !== undefined || riskProfile?.data_quality?.longest_gap_days !== undefined) && (
+                  <div className="flex justify-between text-sm mt-1">
+                    <span className="text-gray-600">Longest Gap:</span>
+                    <span className="font-bold text-gray-900">
+                      {factors.longest_gap_days ?? riskProfile?.data_quality?.longest_gap_days ?? 0} days
+                    </span>
+                  </div>
+                )}
                 <div className="flex justify-between text-sm mt-1">
                   <span className="text-gray-600">Prediction Method:</span>
                   <span className="font-bold text-gray-900 capitalize">{riskProfile?.prediction_method || 'ML'}</span>
                 </div>
+                {riskProfile?.model_version && (
+                  <div className="flex justify-between text-sm mt-1">
+                    <span className="text-gray-600">Model Version:</span>
+                    <span className="font-bold text-gray-900">{riskProfile.model_version}</span>
+                  </div>
+                )}
               </div>
             </div>
           )}
@@ -348,6 +382,18 @@ const StudentDetailPage = (): React.ReactElement => {
                 <span className="font-medium">{student.parent_phone || 'N/A'}</span>
               </div>
             </div>
+          </div>
+
+          {/* Attendance Heatmap (Monthly) - moved here above Recommended Actions */}
+          <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+            <HeatmapChart
+              attendanceData={attendanceData || []}
+              title={`Student Attendance Heatmap (${monthTitle})`}
+              showMonthNavigator={true}
+              compact
+              month={selectedMonth}
+              onMonthChange={setSelectedMonth}
+            />
           </div>
 
           {/* Recommended Actions based on Risk Tier */}

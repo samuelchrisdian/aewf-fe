@@ -1,7 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { apiClient } from '@/lib/api-client';
 
-export const STUDENT_ATTENDANCE_QUERY_KEY = (nis?: string | null) => ['attendance', 'student', nis] as const;
+export const STUDENT_ATTENDANCE_QUERY_KEY = (nis?: string | null, month?: string | null, startDate?: string | null, endDate?: string | null) => ['attendance', 'student', nis, month, startDate, endDate] as const;
 
 // Attendance record from backend
 export interface AttendanceRecord {
@@ -19,15 +19,31 @@ interface AttendanceResponse {
     attendance?: AttendanceRecord[];
     records?: AttendanceRecord[];
 }
+export function useStudentAttendanceQuery(
+    nis?: string | null,
+    params?: { month?: string; startDate?: string; endDate?: string }
+) {
+    const month = params?.month ?? null;
+    const startDate = params?.startDate ?? null;
+    const endDate = params?.endDate ?? null;
 
-export function useStudentAttendanceQuery(nis?: string | null) {
     return useQuery({
-        queryKey: STUDENT_ATTENDANCE_QUERY_KEY(nis),
+        queryKey: STUDENT_ATTENDANCE_QUERY_KEY(nis, month, startDate, endDate),
         queryFn: async (): Promise<AttendanceRecord[]> => {
             if (!nis) return [];
 
             try {
-                const response = await apiClient.get<AttendanceResponse | AttendanceRecord[]>(`/api/v1/attendance/student/${nis}`);
+                const searchParams = new URLSearchParams();
+                if (month) searchParams.set('month', month); // format YYYY-MM
+                if (startDate) searchParams.set('start_date', startDate); // YYYY-MM-DD
+                if (endDate) searchParams.set('end_date', endDate); // YYYY-MM-DD
+
+                const qs = searchParams.toString();
+                const url = qs
+                    ? `/api/v1/attendance/student/${nis}?${qs}`
+                    : `/api/v1/attendance/student/${nis}`;
+
+                const response = await apiClient.get<AttendanceResponse | AttendanceRecord[]>(url);
 
                 // Handle different response formats
                 if (Array.isArray(response)) {
@@ -42,7 +58,7 @@ export function useStudentAttendanceQuery(nis?: string | null) {
             }
         },
         enabled: !!nis,
-        staleTime: 1000 * 60 * 5, // 5 minutes
+        staleTime: 1000 * 60 * 2, // 2 minutes
         retry: false,
     });
 }

@@ -1,4 +1,5 @@
-import React, { useMemo } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
+import { ChevronLeft, ChevronRight } from 'lucide-react';
 
 interface AttendanceRecord {
     date: string;
@@ -9,31 +10,41 @@ interface AttendanceRecord {
 interface HeatmapChartProps {
     attendanceData?: AttendanceRecord[];
     title?: string;
+    showMonthNavigator?: boolean;
+    compact?: boolean;
+    month?: string; // YYYY-MM, controlled by parent (optional)
+    onMonthChange?: (month: string) => void;
 }
 
-const HeatmapChart = ({ attendanceData = [], title = 'Attendance Heatmap (Last 30 Days)' }: HeatmapChartProps): React.ReactElement => {
-    const days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri'];
+interface DayCell {
+    date: number;
+    dateStr: string;
+    dayName: string;
+    status: number;
+    isCurrentMonth: boolean;
+}
 
-    // Process attendance data into heatmap format
-    const { weeks, data } = useMemo(() => {
+const HeatmapChart = ({ attendanceData = [], title = 'Attendance Heatmap', showMonthNavigator = true, compact = false, month, onMonthChange }: HeatmapChartProps): React.ReactElement => {
+    const [displayDate, setDisplayDate] = useState<Date>(new Date());
+
+    const dayNames = ['Min', 'Sen', 'Sel', 'Rab', 'Kam', 'Jum', 'Sab'];
+
+    const normalizeStatus = (raw?: string) => {
+        const s = (raw || '').toString().trim().toLowerCase();
+        if (!s) return 'unknown';
+        if (['present', 'hadir', 'p'].includes(s)) return 'present';
+        if (['late', 'terlambat', 'l'].includes(s)) return 'late';
+        if (['absent', 'alpha', 'a', 'alpa'].includes(s)) return 'absent';
+        if (['permission', 'izin', 'i', 'excused'].includes(s)) return 'permission';
+        if (['sick', 'sakit', 's'].includes(s)) return 'sick';
+        return s;
+    };
+
+    // Process attendance data into calendar format
+    const { calendarDays, monthYear } = useMemo(() => {
         try {
-            const today = new Date();
-            const last30Days: { date: Date; weekIndex: number; dayIndex: number }[] = [];
-
-            // Generate last 28 days (4 weeks) for clean display
-            for (let i = 27; i >= 0; i--) {
-                const date = new Date(today);
-                date.setDate(date.getDate() - i);
-                const dayOfWeek = date.getDay();
-                // Skip weekends (0 = Sunday, 6 = Saturday)
-                if (dayOfWeek >= 1 && dayOfWeek <= 5) {
-                    last30Days.push({
-                        date,
-                        weekIndex: Math.floor((27 - i) / 7),
-                        dayIndex: dayOfWeek - 1 // 0 = Monday
-                    });
-                }
-            }
+            const year = displayDate.getFullYear();
+            const month = displayDate.getMonth();
 
             // Create attendance map by date
             const attendanceMap = new Map<string, string>();
@@ -45,8 +56,8 @@ const HeatmapChart = ({ attendanceData = [], title = 'Attendance Heatmap (Last 3
                         try {
                             const parsedDate = new Date(dateStr);
                             if (!isNaN(parsedDate.getTime())) {
-                                const normalizedDate = parsedDate.toISOString().split('T')[0];
-                                attendanceMap.set(normalizedDate, (record.status || 'unknown').toLowerCase());
+                                const normalizedDate = `${parsedDate.getFullYear()}-${String(parsedDate.getMonth() + 1).padStart(2, '0')}-${String(parsedDate.getDate()).padStart(2, '0')}`;
+                                attendanceMap.set(normalizedDate, normalizeStatus(record.status));
                             }
                         } catch {
                             // Skip invalid dates
@@ -55,74 +66,119 @@ const HeatmapChart = ({ attendanceData = [], title = 'Attendance Heatmap (Last 3
                 });
             }
 
-            // Generate week labels
-            const weekLabels: string[] = [];
-            const gridData: number[][] = [];
+            // Get first day of month and number of days
+            const firstDay = new Date(year, month, 1).getDay(); // 0 = Sunday
+            const daysInMonth = new Date(year, month + 1, 0).getDate();
+            const daysInPrevMonth = new Date(year, month, 0).getDate();
 
-            // Group by weeks
-            const weekData: Map<number, { dayIndex: number; status: number }[]> = new Map();
+            const days: DayCell[] = [];
 
-            last30Days.forEach(({ date, weekIndex, dayIndex }) => {
-                const dateStr = date.toISOString().split('T')[0];
+            // Add previous month days
+            for (let i = firstDay - 1; i >= 0; i--) {
+                const date = daysInPrevMonth - i;
+                const prevMonth = month === 0 ? 11 : month - 1;
+                const prevYear = month === 0 ? year - 1 : year;
+                const dateStr = `${prevYear}-${String(prevMonth + 1).padStart(2, '0')}-${String(date).padStart(2, '0')}`;
+
+                days.push({
+                    date,
+                    dateStr,
+                    dayName: dayNames[(firstDay - 1 - i) % 7],
+                    status: -1,
+                    isCurrentMonth: false
+                });
+            }
+
+            // Add current month days
+            for (let date = 1; date <= daysInMonth; date++) {
+                const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(date).padStart(2, '0')}`;
                 const status = attendanceMap.get(dateStr);
 
-                let statusCode = -1; // -1 = no data
+                let statusCode = -1;
                 if (status) {
                     if (status === 'present') statusCode = 0;
                     else if (status === 'late') statusCode = 1;
                     else if (status === 'absent') statusCode = 2;
-                    else if (status === 'permission' || status === 'sick') statusCode = 3;
-                    else statusCode = 0; // Default to present
+                    else if (status === 'permission' || status === 'sick' || status === 'excused') statusCode = 3;
+                    else statusCode = 0;
                 }
 
-                if (!weekData.has(weekIndex)) {
-                    weekData.set(weekIndex, []);
-                }
-                weekData.get(weekIndex)!.push({ dayIndex, status: statusCode });
-            });
-
-            // Convert to grid format
-            weekData.forEach((dayStatuses, weekIndex) => {
-                weekLabels.push(`Week ${weekIndex + 1}`);
-
-                // Initialize week row with -1 (no data)
-                const weekRow = [-1, -1, -1, -1, -1];
-                dayStatuses.forEach(({ dayIndex, status }) => {
-                    if (dayIndex >= 0 && dayIndex < 5) {
-                        weekRow[dayIndex] = status;
-                    }
+                days.push({
+                    date,
+                    dateStr,
+                    dayName: dayNames[(firstDay + date - 1) % 7],
+                    status: statusCode,
+                    isCurrentMonth: true
                 });
-                gridData.push(weekRow);
-            });
-
-            // Ensure we have at least 4 weeks
-            while (weekLabels.length < 4) {
-                weekLabels.push(`Week ${weekLabels.length + 1}`);
-                gridData.push([-1, -1, -1, -1, -1]);
             }
 
-            return { weeks: weekLabels.slice(0, 4), data: gridData.slice(0, 4) };
+            // Add next month days to fill grid
+            const remainingCells = 42 - days.length; // 6 rows × 7 days
+            for (let date = 1; date <= remainingCells; date++) {
+                const nextMonth = month === 11 ? 0 : month + 1;
+                const nextYear = month === 11 ? year + 1 : year;
+                const dateStr = `${nextYear}-${String(nextMonth + 1).padStart(2, '0')}-${String(date).padStart(2, '0')}`;
+
+                days.push({
+                    date,
+                    dateStr,
+                    dayName: dayNames[(firstDay + daysInMonth + date - 1) % 7],
+                    status: -1,
+                    isCurrentMonth: false
+                });
+            }
+
+            const monthYearStr = new Date(year, month).toLocaleDateString('id-ID', { month: 'long', year: 'numeric' });
+
+            return { calendarDays: days, monthYear: monthYearStr };
         } catch (error) {
             console.error('Error processing heatmap data:', error);
-            // Return default empty grid
-            return {
-                weeks: ['Week 1', 'Week 2', 'Week 3', 'Week 4'],
-                data: [
-                    [-1, -1, -1, -1, -1],
-                    [-1, -1, -1, -1, -1],
-                    [-1, -1, -1, -1, -1],
-                    [-1, -1, -1, -1, -1],
-                ]
-            };
+            return { calendarDays: [], monthYear: '' };
+        }
+    }, [displayDate, attendanceData]);
+
+    // Keep internal displayDate in sync with controlled month prop
+    useEffect(() => {
+        if (!month) return;
+        const [y, m] = month.split('-').map(Number);
+        if (!y || !m) return;
+        const target = new Date(y, m - 1, 1);
+        if (target.getFullYear() !== displayDate.getFullYear() || target.getMonth() !== displayDate.getMonth()) {
+            setDisplayDate(target);
+        }
+    }, [month]);
+
+    // Auto-jump to the most recent month that has records (only when uncontrolled)
+    useEffect(() => {
+        if (month) return; // parent controls month
+        if (!Array.isArray(attendanceData) || attendanceData.length === 0) return;
+        let latest: Date | null = null;
+        for (const rec of attendanceData) {
+            const dateStr = rec?.attendance_date || rec?.date;
+            if (!dateStr) continue;
+            const d = new Date(dateStr);
+            if (isNaN(d.getTime())) continue;
+            if (!latest || d > latest) latest = d;
+        }
+        if (latest) {
+            const target = new Date(latest.getFullYear(), latest.getMonth(), 1);
+            // Only jump if currently not in the same month-year
+            if (
+                target.getFullYear() !== displayDate.getFullYear() ||
+                target.getMonth() !== displayDate.getMonth()
+            ) {
+                setDisplayDate(target);
+            }
         }
     }, [attendanceData]);
 
-    const getColor = (status: number) => {
-        if (status === 0) return 'bg-green-100 border-green-200 text-green-700 hover:bg-green-200';
-        if (status === 1) return 'bg-yellow-100 border-yellow-200 text-yellow-700 hover:bg-yellow-200';
-        if (status === 2) return 'bg-red-100 border-red-200 text-red-700 hover:bg-red-200';
-        if (status === 3) return 'bg-blue-100 border-blue-200 text-blue-700 hover:bg-blue-200';
-        return 'bg-gray-50 border-gray-200 text-gray-400';
+    const getColor = (status: number, isCurrentMonth: boolean) => {
+        if (!isCurrentMonth) return 'bg-gray-50 border-gray-100 text-gray-300 cursor-default';
+        if (status === 0) return 'bg-green-100 border-green-200 text-green-700 hover:bg-green-200 cursor-pointer';
+        if (status === 1) return 'bg-yellow-100 border-yellow-200 text-yellow-700 hover:bg-yellow-200 cursor-pointer';
+        if (status === 2) return 'bg-red-100 border-red-200 text-red-700 hover:bg-red-200 cursor-pointer';
+        if (status === 3) return 'bg-blue-100 border-blue-200 text-blue-700 hover:bg-blue-200 cursor-pointer';
+        return 'bg-gray-50 border-gray-200 text-gray-400 cursor-pointer';
     };
 
     const getLabel = (status: number) => {
@@ -133,41 +189,87 @@ const HeatmapChart = ({ attendanceData = [], title = 'Attendance Heatmap (Last 3
         return '-';
     };
 
-    const getTooltip = (status: number) => {
-        if (status === 0) return 'Present';
-        if (status === 1) return 'Late';
-        if (status === 2) return 'Absent';
-        if (status === 3) return 'Excused (Permission/Sick)';
-        return 'No Data';
+    const getTooltip = (status: number, date: number) => {
+        if (status === 0) return `${date} - Present`;
+        if (status === 1) return `${date} - Late`;
+        if (status === 2) return `${date} - Absent`;
+        if (status === 3) return `${date} - Excused (Permission/Sick)`;
+        return `${date} - No Data`;
+    };
+
+    const handlePrevMonth = () => {
+        const newDate = new Date(displayDate);
+        newDate.setMonth(newDate.getMonth() - 1);
+        setDisplayDate(newDate);
+        onMonthChange?.(`${newDate.getFullYear()}-${String(newDate.getMonth() + 1).padStart(2, '0')}`);
+    };
+
+    const handleNextMonth = () => {
+        const newDate = new Date(displayDate);
+        newDate.setMonth(newDate.getMonth() + 1);
+        setDisplayDate(newDate);
+        onMonthChange?.(`${newDate.getFullYear()}-${String(newDate.getMonth() + 1).padStart(2, '0')}`);
+    };
+
+    const handleToday = () => {
+        const now = new Date();
+        setDisplayDate(now);
+        onMonthChange?.(`${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`);
     };
 
     return (
         <div>
-            <h3 className="text-lg font-bold text-gray-800 mb-4">{title}</h3>
+            <div className="flex items-center justify-between mb-4">
+                <h3 className="text-lg font-bold text-gray-800">{title}</h3>
+                {showMonthNavigator && (
+                    <div className="flex items-center gap-2">
+                        <button
+                            onClick={handlePrevMonth}
+                            className="p-1 hover:bg-gray-100 rounded-lg transition-colors"
+                            title="Previous month"
+                        >
+                            <ChevronLeft className="w-5 h-5 text-gray-600" />
+                        </button>
+                        <button
+                            onClick={handleToday}
+                            className="px-3 py-1 text-sm font-medium text-gray-600 hover:bg-gray-100 rounded-lg transition-colors whitespace-nowrap"
+                        >
+                            {monthYear}
+                        </button>
+                        <button
+                            onClick={handleNextMonth}
+                            className="p-1 hover:bg-gray-100 rounded-lg transition-colors"
+                            title="Next month"
+                        >
+                            <ChevronRight className="w-5 h-5 text-gray-600" />
+                        </button>
+                    </div>
+                )}
+            </div>
             <div className="overflow-x-auto">
-                <div className="min-w-[500px]">
-                    <div className="grid grid-cols-[100px_repeat(5,1fr)] gap-2 mb-2">
-                        <div className="font-semibold text-gray-500 text-sm"></div>
-                        {days.map((d) => (
-                            <div key={d} className="text-center text-sm font-semibold text-gray-500">
-                                {d}
+                <div className={compact ? "min-w-[280px]" : "min-w-[600px]"}>
+                    {/* Day names header */}
+                    <div className="grid grid-cols-7 gap-1 mb-2">
+                        {dayNames.map((day) => (
+                            <div key={day} className={compact ? "text-center text-[10px] font-semibold text-gray-500 py-1" : "text-center text-xs font-semibold text-gray-500 py-2"}>
+                                {day}
                             </div>
                         ))}
                     </div>
-                    {weeks.map((week, wIndex) => (
-                        <div key={week} className="grid grid-cols-[100px_repeat(5,1fr)] gap-2 mb-2">
-                            <div className="flex items-center text-sm font-medium text-gray-600">{week}</div>
-                            {(data[wIndex] || [-1, -1, -1, -1, -1]).map((status, dIndex) => (
-                                <div
-                                    key={dIndex}
-                                    className={`h-10 rounded-md border flex items-center justify-center cursor-pointer transition-colors text-xs font-bold ${getColor(status)}`}
-                                    title={getTooltip(status)}
-                                >
-                                    {getLabel(status)}
-                                </div>
-                            ))}
-                        </div>
-                    ))}
+
+                    {/* Calendar grid */}
+                    <div className="grid grid-cols-7 gap-1">
+                        {calendarDays.map((day, idx) => (
+                            <div
+                                key={idx}
+                                className={`${compact ? "aspect-square" : "aspect-square"} rounded-md border flex flex-col items-center justify-center ${compact ? "text-[10px]" : "text-xs"} font-semibold transition-colors ${getColor(day.status, day.isCurrentMonth)}`}
+                                title={getTooltip(day.status, day.date)}
+                            >
+                                <div className={compact ? "text-[10px] opacity-75" : "text-xs opacity-75"}>{day.date}</div>
+                                <div>{getLabel(day.status)}</div>
+                            </div>
+                        ))}
+                    </div>
                 </div>
             </div>
             <div className="mt-4 flex flex-wrap gap-4 text-xs text-gray-500">
