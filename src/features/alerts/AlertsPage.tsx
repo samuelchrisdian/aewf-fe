@@ -2,10 +2,11 @@ import React, { useMemo, useCallback, useState } from 'react';
 import { Eye, CheckCircle } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import DataTable from '../../components/DataTable';
-import { useRiskListQuery, useAlertAction } from './queries';
+import { useRiskListQuery, useAlertAction, useAlertsQuery } from './queries';
+import { useRecalculateRisk } from '@/features/ml';
 import { AcknowledgeModal } from './components/AcknowledgeModal';
 import { useUpdateStudent } from '../students/queries';
-import { notify } from '@/lib/notifications.tsx';
+import { notify } from '@/lib/notifications';
 import { apiClient } from '@/lib/api-client';
 import type { RiskStudent } from '@/types/api';
 
@@ -16,11 +17,16 @@ const AlertsPage = (): React.ReactElement => {
     const [selectedStudent, setSelectedStudent] = useState<RiskStudent | null>(null);
 
     const { data: students = [], isLoading: loading } = useRiskListQuery({
-        level: filter !== 'ALL' ? filter.toLowerCase() as any : undefined,
+        level: filter !== 'ALL' ? (filter.toLowerCase() as any) : undefined,
+        per_page: 9999,
     });
+
+    // Fetch pending alerts to filter prioritized list
+    const { data: pendingAlerts = [] } = useAlertsQuery({ status: 'pending', per_page: 9999 });
 
     const alertAction = useAlertAction();
     const updateStudent = useUpdateStudent();
+    const recalculateRisk = useRecalculateRisk();
 
     // Handler to open acknowledge modal
     const handleAckClick = useCallback((student: RiskStudent) => {
@@ -39,18 +45,20 @@ const AlertsPage = (): React.ReactElement => {
         if (!selectedStudent) return;
 
         try {
-            // First, fetch alert to get alert ID and class_id
+            // Fetch pending alerts and locate the student's latest alert
             const alertsData = await apiClient.get<{ alerts?: any[]; data?: any[] }>(
                 '/api/v1/risk/alerts',
-                { params: { student_nis: selectedStudent.nis } }
+                { params: { status: 'pending', per_page: 9999 } }
             );
-            const alerts = alertsData.alerts || alertsData.data || [];
+            const alertsList = alertsData.alerts || alertsData.data || [];
 
-            if (alerts.length === 0) {
-                throw new Error('No alert found for this student');
+            const studentAlerts = alertsList.filter((a: any) => String(a.student_nis) === String(selectedStudent.nis));
+            if (studentAlerts.length === 0) {
+                throw new Error('No pending alert found for this student');
             }
 
-            const alert = alerts[0];
+            // Choose the most recent alert by created_at
+            const alert = studentAlerts.sort((a: any, b: any) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())[0];
             const alertId = alert.id;
             const classIdFromAlert = alert.class_id || selectedStudent.class_id;
 
@@ -73,6 +81,9 @@ const AlertsPage = (): React.ReactElement => {
                     follow_up_date: data.followUpDate,
                 },
             });
+
+            // Targeted risk recalculation for the acknowledged student
+            await recalculateRisk.mutateAsync({ student_nis: String(selectedStudent.nis) });
 
             // Close modal
             handleCloseModal();
@@ -215,7 +226,7 @@ const AlertsPage = (): React.ReactElement => {
             <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
                 <DataTable
                     columns={columns}
-                    data={students}
+                    data={students.filter((s) => pendingAlerts.some((a: any) => String(a.student_nis) === String(s.nis)))}
                     initialState={{ pagination: { pageSize: 10 }, sorting: [{ id: 'probability', desc: true }] }}
                     noDataMessage="No students found matching the filter."
                 />

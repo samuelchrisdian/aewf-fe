@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
-import { useModelInfo, useModelPerformance, useRetrainModel, usePredictAllStudents, PredictErrorModal, type PredictError } from '@/features/ml';
+import { useModelInfo, useModelPerformance, useRetrainModel, useRecalculateRisk, PredictErrorModal, type PredictError } from '@/features/ml';
 import { Brain, RefreshCw, CheckCircle, AlertTriangle, Clock } from 'lucide-react';
-import { notify } from '@/lib/notifications.tsx';
+import { notify } from '@/lib/notifications';
 
 const ModelStatusCard: React.FC = () => {
     // Separate concerns:
@@ -10,7 +10,7 @@ const ModelStatusCard: React.FC = () => {
     const { data: modelInfo, isLoading: infoLoading, error: infoError } = useModelInfo();
     const { data: modelPerformance, isLoading: perfLoading } = useModelPerformance();
     const { mutate: retrain, isPending: isRetraining } = useRetrainModel();
-    const { mutate: predictAll, isPending: isPredicting } = usePredictAllStudents();
+    const { mutate: recalculateRisk, isPending: isRecalculating } = useRecalculateRisk();
 
     // Modal state for error display
     const [showErrorModal, setShowErrorModal] = useState(false);
@@ -19,7 +19,7 @@ const ModelStatusCard: React.FC = () => {
 
     const isLoading = infoLoading || perfLoading;
     const hasError = infoError;
-    const isProcessing = isRetraining || isPredicting;
+    const isProcessing = isRetraining || isRecalculating;
 
     const handleRetrain = async () => {
         const confirmed = await notify.confirm(
@@ -35,28 +35,30 @@ const ModelStatusCard: React.FC = () => {
         if (confirmed) {
             retrain(undefined, {
                 onSuccess: () => {
-                    // Step 1: Retrain succeeded, now predict all students
-                    notify.info('Model berhasil dilatih! Memperbarui prediksi untuk semua siswa...');
+                    // Step 1: Retrain succeeded, now recalculate risk for all students
+                    notify.info('Model berhasil dilatih! Menghitung ulang risiko untuk semua siswa...');
 
-                    predictAll(undefined, {
+                    recalculateRisk(undefined, {
                         onSuccess: (data) => {
                             if (data.success) {
-                                notify.success('Retrain berhasil! Semua prediksi siswa telah diperbarui.');
+                                const processed = data.students_processed || 0;
+                                notify.success(`Retrain berhasil! Risiko ${processed} siswa telah diperbarui.`);
                             } else {
-                                // Some predictions failed - show modal with details
-                                setPredictErrors(data.failed);
-                                setTotalStudents(data.totalStudents);
+                                // Some recalculations failed - show modal with details
+                                const errors = (data.errors || []).map(e => ({ nis: e.nis, error: e.error, name: undefined }));
+                                setPredictErrors(errors);
+                                setTotalStudents(data.students_processed || 0);
                                 setShowErrorModal(true);
 
                                 notify.error(
-                                    `Retrain gagal! ${data.errorCount} dari ${data.totalStudents} siswa gagal diprediksi.`
+                                    `Retrain berhasil tapi ada error: ${data.message}`
                                 );
                             }
                         },
                         onError: (error: any) => {
-                            // Predict all failed completely
+                            // Recalculate failed completely
                             notify.error(
-                                `Retrain gagal! Tidak dapat memperbarui prediksi: ${error.message || 'Unknown error'}`
+                                `Retrain gagal! Tidak dapat menghitung ulang risiko: ${error.message || 'Unknown error'}`
                             );
                         }
                     });
@@ -133,7 +135,7 @@ const ModelStatusCard: React.FC = () => {
                     className="flex items-center gap-1 px-3 py-1.5 text-xs font-medium text-purple-600 bg-purple-50 rounded-lg hover:bg-purple-100 transition-colors disabled:opacity-50"
                 >
                     <RefreshCw className={`w-3.5 h-3.5 ${isProcessing ? 'animate-spin' : ''}`} />
-                    {isRetraining ? 'Training...' : isPredicting ? 'Predicting...' : 'Retrain'}
+                    {isRetraining ? 'Training...' : isRecalculating ? 'Recalculating...' : 'Retrain'}
                 </button>
             </div>
 

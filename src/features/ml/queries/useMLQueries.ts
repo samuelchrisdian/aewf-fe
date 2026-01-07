@@ -167,10 +167,46 @@ export function useRetrainModel() {
 }
 
 /**
- * Hook to predict risk for all students
- * GET /api/v1/models/predict/{nis} for each student
+ * Hook to recalculate risk for all students (batch operation)
+ * POST /api/v1/risk/recalculate
  *
- * This is called after successful retrain to update all risk predictions
+ * This is called after successful retrain to update all risk predictions in batch.
+ * More efficient than calling /models/predict/{nis} for each student individually.
+ */
+export function useRecalculateRisk() {
+    const queryClient = useQueryClient();
+
+    return useMutation({
+        mutationFn: async (params?: { class_id?: string; student_nis?: string }): Promise<RecalculateResponse> => {
+            const response = await apiClient.post<any>('/api/v1/risk/recalculate', params || {});
+
+            const data = response.data || response;
+
+            return {
+                success: data.success !== false,
+                message: data.message || 'Risk recalculated successfully',
+                students_processed: data.students_processed || data.processed || 0,
+                errors: data.errors || [],
+            };
+        },
+        onSuccess: () => {
+            // Invalidate risk-related queries to refetch updated data
+            queryClient.invalidateQueries({ queryKey: ['risk'] });
+        },
+    });
+}
+
+export interface RecalculateResponse {
+    success: boolean;
+    message: string;
+    students_processed?: number;
+    errors?: { nis: string; error: string }[];
+}
+
+/**
+ * @deprecated Use useRecalculateRisk instead for batch risk recalculation.
+ * Hook to predict risk for all students one by one (legacy - less efficient).
+ * GET /api/v1/models/predict/{nis} for each student
  */
 export function usePredictAllStudents() {
     return useMutation({

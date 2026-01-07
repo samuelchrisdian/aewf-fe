@@ -22,6 +22,11 @@ interface FeatureImportanceChartProps {
         late_ratio?: number;
         attendance_ratio?: number;
         is_rule_triggered?: boolean;
+        recording_completeness?: number;
+        longest_gap_days?: number;
+        permission_count?: number;
+        sick_count?: number;
+        total_days?: number;
     };
     className?: string;
 }
@@ -35,10 +40,16 @@ const FEATURE_LABELS: Record<string, string> = {
     absent_ratio: 'Rasio Absen',
     late_ratio: 'Rasio Terlambat',
     attendance_ratio: 'Rasio Kehadiran',
+    recording_completeness: 'Kelengkapan Data',
+    longest_gap_days: 'Gap Terpanjang (Hari)',
+    permission_count: 'Jumlah Izin',
+    sick_count: 'Jumlah Sakit',
+    total_days: 'Total Hari Sekolah',
 };
 
 // Approximate feature importance weights based on ML model
 // These are relative importance values for visualization
+// Note: recording_completeness and longest_gap_days are data quality indicators, not behavioral risk factors
 const FEATURE_WEIGHTS: Record<string, number> = {
     absent_count: 2.08,
     present_count: -0.81,
@@ -47,6 +58,11 @@ const FEATURE_WEIGHTS: Record<string, number> = {
     absent_ratio: 1.2,
     late_ratio: 0.6,
     attendance_ratio: -0.9,
+    recording_completeness: 0.1,  // Low weight - data quality, not risk
+    longest_gap_days: 0.15,       // Low weight - data quality, not risk
+    permission_count: -0.3,
+    sick_count: -0.2,
+    total_days: 0.05,
 };
 
 const FeatureImportanceChart: React.FC<FeatureImportanceChartProps> = ({ factors, className }) => {

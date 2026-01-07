@@ -14,6 +14,7 @@ interface BackendRiskProfile {
     risk_probability?: number;
     probability?: number;
     explanation_text?: string;
+    model_version?: string;
     factors?: {
         absent_ratio?: number;
         absent_count?: number;
@@ -26,6 +27,13 @@ interface BackendRiskProfile {
         permission_count?: number;
         sick_count?: number;
         is_rule_triggered?: boolean;
+        recording_completeness?: number;
+        longest_gap_days?: number;
+    };
+    data_quality?: {
+        recording_completeness: number;
+        is_low_quality: boolean;
+        longest_gap_days: number;
     };
     prediction_method?: string;
     is_rule_overridden?: boolean;
@@ -53,6 +61,7 @@ export interface StudentRiskProfile {
     risk_score: number;
     probability: number;
     explanation_text?: string;
+    model_version?: string;
     factors: {
         absent_ratio: number;
         absent_count: number;
@@ -65,6 +74,13 @@ export interface StudentRiskProfile {
         permission_count: number;
         sick_count: number;
         is_rule_triggered: boolean;
+        recording_completeness?: number;
+        longest_gap_days?: number;
+    };
+    data_quality?: {
+        recording_completeness: number;
+        is_low_quality: boolean;
+        longest_gap_days: number;
     };
     prediction_method: string;
     is_rule_overridden: boolean;
@@ -100,6 +116,7 @@ export function useStudentRiskQuery(nis?: string | null) {
                         risk_score: data.risk_score || data.risk_probability || data.probability || 0,
                         probability: data.risk_probability || data.probability || data.risk_score || 0,
                         explanation_text: data.explanation_text,
+                        model_version: data.model_version,
                         factors: {
                             absent_ratio: data.factors?.absent_ratio || 0,
                             absent_count: data.factors?.absent_count || 0,
@@ -112,7 +129,10 @@ export function useStudentRiskQuery(nis?: string | null) {
                             permission_count: data.factors?.permission_count || 0,
                             sick_count: data.factors?.sick_count || 0,
                             is_rule_triggered: data.factors?.is_rule_triggered || data.is_rule_overridden || false,
+                            recording_completeness: data.factors?.recording_completeness ?? data.data_quality?.recording_completeness,
+                            longest_gap_days: data.factors?.longest_gap_days ?? data.data_quality?.longest_gap_days,
                         },
+                        data_quality: data.data_quality,
                         prediction_method: data.prediction_method || 'ml',
                         is_rule_overridden: data.is_rule_overridden || false,
                     };

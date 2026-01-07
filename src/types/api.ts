@@ -157,6 +157,12 @@ export interface StudentAttendanceParams {
 }
 
 // ============ Risk Management Types ============
+export interface DataQuality {
+  recording_completeness: number;
+  is_low_quality: boolean;
+  longest_gap_days: number;
+}
+
 export interface RiskStudent {
   nis: string;
   name: string;
@@ -166,6 +172,8 @@ export interface RiskStudent {
   risk_score: number;
   probability?: number;
   factors?: string[];
+  model_version?: string;
+  data_quality?: DataQuality;
   last_updated?: string;
 }
 
@@ -183,9 +191,12 @@ export interface Alert {
   class_name?: string;
   risk_level: 'low' | 'medium' | 'high' | 'critical';
   risk_score: number;
-  status: 'open' | 'in_progress' | 'resolved' | 'dismissed';
+  // Align with backend: pending/acknowledged/resolved
+  status: 'pending' | 'acknowledged' | 'resolved' | 'dismissed' | 'open' | 'in_progress';
   message?: string;
   factors?: string[];
+  model_version?: string;
+  data_quality?: DataQuality;
   created_at: string;
   updated_at?: string;
   resolved_at?: string;
@@ -194,9 +205,10 @@ export interface Alert {
 }
 
 export interface AlertsParams {
-  status?: 'open' | 'in_progress' | 'resolved' | 'dismissed';
+  status?: 'pending' | 'acknowledged' | 'resolved' | 'dismissed' | 'open' | 'in_progress';
   class_id?: number;
   risk_level?: 'low' | 'medium' | 'high' | 'critical';
+  student_nis?: string;
   page?: number;
   per_page?: number;
 }
@@ -213,6 +225,8 @@ export interface RiskHistory {
   risk_score: number;
   risk_level: 'low' | 'medium' | 'high' | 'critical';
   factors?: string[];
+  model_version?: string;
+  data_quality?: DataQuality;
 }
 
 export interface RecalculateRiskRequest {

@@ -9,6 +9,12 @@ export interface PredictStudentResponse {
         risk_tier: string;
         risk_score: number;
         factors?: any;
+        model_version?: string;
+        data_quality?: {
+            recording_completeness: number;
+            is_low_quality: boolean;
+            longest_gap_days: number;
+        };
     };
 }
 
