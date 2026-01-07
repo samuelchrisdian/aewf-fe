@@ -219,33 +219,34 @@ const HeatmapChart = ({ attendanceData = [], title = 'Attendance Heatmap', showM
 
     return (
         <div>
-            <div className="flex items-center justify-between mb-4">
-                <h3 className="text-lg font-bold text-gray-800">{title}</h3>
-                {showMonthNavigator && (
-                    <div className="flex items-center gap-2">
-                        <button
-                            onClick={handlePrevMonth}
-                            className="p-1 hover:bg-gray-100 rounded-lg transition-colors"
-                            title="Previous month"
-                        >
-                            <ChevronLeft className="w-5 h-5 text-gray-600" />
-                        </button>
-                        <button
-                            onClick={handleToday}
-                            className="px-3 py-1 text-sm font-medium text-gray-600 hover:bg-gray-100 rounded-lg transition-colors whitespace-nowrap"
-                        >
-                            {monthYear}
-                        </button>
-                        <button
-                            onClick={handleNextMonth}
-                            className="p-1 hover:bg-gray-100 rounded-lg transition-colors"
-                            title="Next month"
-                        >
-                            <ChevronRight className="w-5 h-5 text-gray-600" />
-                        </button>
-                    </div>
-                )}
-            </div>
+            {/* Title - Left aligned */}
+            <h3 className="text-lg font-bold text-gray-800 mb-4">{title}</h3>
+
+            {/* Month Navigator - Centered */}
+            {showMonthNavigator && (
+                <div className="flex items-center justify-center gap-2 mb-4">
+                    <button
+                        onClick={handlePrevMonth}
+                        className="p-1 hover:bg-gray-100 rounded-lg transition-colors"
+                        title="Previous month"
+                    >
+                        <ChevronLeft className="w-5 h-5 text-gray-600" />
+                    </button>
+                    <button
+                        onClick={handleToday}
+                        className="px-3 py-1 text-sm font-medium text-gray-600 hover:bg-gray-100 rounded-lg transition-colors whitespace-nowrap"
+                    >
+                        {monthYear}
+                    </button>
+                    <button
+                        onClick={handleNextMonth}
+                        className="p-1 hover:bg-gray-100 rounded-lg transition-colors"
+                        title="Next month"
+                    >
+                        <ChevronRight className="w-5 h-5 text-gray-600" />
+                    </button>
+                </div>
+            )}
             <div className="overflow-x-auto">
                 <div className={compact ? "min-w-[280px]" : "min-w-[600px]"}>
                     {/* Day names header */}
