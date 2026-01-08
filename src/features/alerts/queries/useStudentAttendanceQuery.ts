@@ -51,7 +51,19 @@ export function useStudentAttendanceQuery(
                 }
 
                 const data = response as AttendanceResponse;
-                return data.data || data.attendance || data.records || [];
+
+                // Handle nested response: { data: { records: [...] } }
+                const innerData = data.data as unknown as { records?: AttendanceRecord[] };
+                if (innerData && Array.isArray(innerData.records)) {
+                    return innerData.records;
+                }
+
+                // Fallback for other formats
+                if (Array.isArray(data.data)) {
+                    return data.data;
+                }
+
+                return data.attendance || data.records || [];
             } catch (error) {
                 console.error('Failed to fetch attendance:', error);
                 return [];
