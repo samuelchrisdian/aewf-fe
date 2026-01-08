@@ -16,8 +16,13 @@ export function useRiskHistoryQuery(nis?: string) {
         if (Array.isArray(response)) {
           return response;
         }
-        if (response.data && Array.isArray(response.data)) {
-          return response.data;
+        if (response.data) {
+          if (Array.isArray(response.data)) {
+            return response.data;
+          }
+          if (Array.isArray(response.data.history)) {
+            return response.data.history;
+          }
         }
         // Fallback to empty array
         return [];

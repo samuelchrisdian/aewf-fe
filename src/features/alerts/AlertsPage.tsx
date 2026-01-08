@@ -155,13 +155,14 @@ const AlertsPage = (): React.ReactElement => {
             header: 'Risk Score',
             cell: ({ getValue }) => {
                 const score = getValue() as number;
-                const percentage = Math.min(score * 100, 100);
+                // If score is > 1 (e.g. 85), use it directly. If <= 1 (e.g. 0.85), multiply by 100
+                const percentage = score > 1 ? score : score * 100;
                 return (
                     <div className="flex items-center">
                         <div className="w-24 bg-gray-200 rounded-full h-2 mr-2">
                             <div
-                                className={`h-2 rounded-full ${score > 0.7 ? 'bg-red-500' : score > 0.4 ? 'bg-yellow-500' : 'bg-green-500'}`}
-                                style={{ width: `${percentage}%` }}
+                                className={`h-2 rounded-full ${score > 0.7 && percentage > 70 ? 'bg-red-500' : (score > 0.4 && percentage > 40) ? 'bg-yellow-500' : 'bg-green-500'}`}
+                                style={{ width: `${Math.min(percentage, 100)}%` }}
                             />
                         </div>
                         <span>{percentage.toFixed(0)}%</span>
@@ -220,6 +221,7 @@ const AlertsPage = (): React.ReactElement => {
                     <button onClick={() => setFilter && setFilter('ALL')} className={`px-3 py-1.5 text-sm font-medium rounded-md transition-colors ${filter === 'ALL' ? 'bg-gray-100 text-gray-900' : 'text-gray-500 hover:bg-gray-50'}`}>All</button>
                     <button onClick={() => setFilter && setFilter('HIGH')} className={`px-3 py-1.5 text-sm font-medium rounded-md transition-colors ${filter === 'HIGH' ? 'bg-red-50 text-red-600' : 'text-gray-500 hover:bg-gray-50'}`}>High Risk</button>
                     <button onClick={() => setFilter && setFilter('MEDIUM')} className={`px-3 py-1.5 text-sm font-medium rounded-md transition-colors ${filter === 'MEDIUM' ? 'bg-yellow-50 text-yellow-600' : 'text-gray-500 hover:bg-gray-50'}`}>Medium Risk</button>
+                    <button onClick={() => setFilter && setFilter('LOW')} className={`px-3 py-1.5 text-sm font-medium rounded-md transition-colors ${filter === 'LOW' ? 'bg-green-50 text-green-600' : 'text-gray-500 hover:bg-gray-50'}`}>Low Risk</button>
                 </div>
             </div>
 
