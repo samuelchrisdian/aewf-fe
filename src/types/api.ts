@@ -453,6 +453,7 @@ export interface ImportBatchListParams {
 // ============ Mapping System Types ============
 export interface MachineUserForMapping {
   id: number;
+  machine_id?: number;  // Machine's database ID for delete operations
   machine_user_id: string;
   machine_user_name: string;
   department?: string;
@@ -488,6 +489,26 @@ export interface VerifyMappingRequest {
 
 export interface BulkVerifyRequest {
   mappings: VerifyMappingRequest[];
+}
+
+export interface ManualMappingRequest {
+  machine_user_id: number;
+  student_nis: string;
+  status?: 'suggested' | 'verified';
+}
+
+export interface BulkCreateMappingRequest {
+  mappings: {
+    machine_user_id: number;
+    student_nis: string;
+  }[];
+}
+
+export interface BulkCreateMappingResponse {
+  success: boolean;
+  message: string;
+  created: number;
+  errors?: { machine_user_id: number; error: string }[];
 }
 
 export interface ProcessMappingResponse {

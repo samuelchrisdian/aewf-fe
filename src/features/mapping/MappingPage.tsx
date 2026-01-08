@@ -16,7 +16,10 @@ import {
     useVerifyMapping,
     useBulkVerify,
     useDeleteMapping,
-    useDeleteMappedStudent
+    useDeleteMappedStudent,
+    useManualMapping,
+    useBulkCreateMapping,
+    useDeleteMachineUser
 } from './queries';
 import type { MappingSuggestion, Student } from '@/types/api';
 
@@ -74,6 +77,9 @@ export const MappingPage: React.FC = () => {
     const bulkVerify = useBulkVerify();
     const deleteMapping = useDeleteMapping();
     const deleteMappedStudent = useDeleteMappedStudent();
+    const manualMapping = useManualMapping();
+    const bulkCreateMapping = useBulkCreateMapping();
+    const deleteMachineUser = useDeleteMachineUser();
 
     // Derived state - only unmapped can be selected
     const unmappedSuggestions = unmappedSuggestionsData;
@@ -154,9 +160,19 @@ export const MappingPage: React.FC = () => {
 
     const handleBulkManualMapping = async (mappings: Array<{ machineUserId: number; studentNis: string }>) => {
         try {
-            // In a real app, this would call an API to create multiple mappings
-            // For now, we'll just show success
-            notify.success(`${mappings.length} mapping(s) created successfully`);
+            // Transform to API format
+            const apiMappings = mappings.map(m => ({
+                machine_user_id: m.machineUserId,
+                student_nis: m.studentNis
+            }));
+
+            const result = await bulkCreateMapping.mutateAsync({ mappings: apiMappings });
+
+            if (result.errors && result.errors.length > 0) {
+                notify.warning(`${result.created} mapping(s) created, ${result.errors.length} failed`);
+            } else {
+                notify.success(`${result.created || mappings.length} mapping(s) created successfully`);
+            }
             setSelectedIds(new Set());
             setIsBulkModalOpen(false);
         } catch (error: any) {
@@ -164,17 +180,25 @@ export const MappingPage: React.FC = () => {
         }
     };
 
-    const handleManualMapping = (_machineUserId: number, _studentNis: string) => {
-        // In a real app, this would call an API to create the mapping
-        notify.success('Manual mapping created successfully');
-        setManualMappingTarget(null);
+    const handleManualMapping = async (machineUserId: number, studentNis: string) => {
+        try {
+            await manualMapping.mutateAsync({
+                machine_user_id: machineUserId,
+                student_nis: studentNis,
+                status: 'verified'
+            });
+            notify.success('Manual mapping created successfully');
+            setManualMappingTarget(null);
+        } catch (error: any) {
+            notify.error(error.message || 'Failed to create manual mapping');
+        }
     };
 
-    const handleDeleteUnmapped = async (id: number) => {
+    const handleDeleteUnmapped = async (suggestion: MappingSuggestion) => {
         const confirmed = await notify.confirm(
-            'Are you sure you want to delete this mapping? This action cannot be undone.',
+            'Are you sure you want to delete this machine user? This action cannot be undone.',
             {
-                title: 'Delete Mapping',
+                title: 'Delete Machine User',
                 confirmText: 'Delete',
                 cancelText: 'Cancel',
                 type: 'danger'
@@ -183,10 +207,18 @@ export const MappingPage: React.FC = () => {
 
         if (confirmed) {
             try {
-                await deleteMapping.mutateAsync(id);
-                notify.success('Mapping deleted successfully');
+                const machineId = suggestion.machine_user?.machine_id;
+                const userId = suggestion.machine_user?.id;
+
+                if (!machineId || !userId) {
+                    notify.error('Missing machine or user ID. Cannot delete.');
+                    return;
+                }
+
+                await deleteMachineUser.mutateAsync({ machineId, userId });
+                notify.success('Machine user deleted successfully');
             } catch (error: any) {
-                notify.error(error.message || 'Failed to delete mapping');
+                notify.error(error.message || 'Failed to delete machine user');
             }
         }
     };
@@ -320,11 +352,10 @@ export const MappingPage: React.FC = () => {
                             <button
                                 key={tab.key}
                                 onClick={() => setActiveTab(tab.key as typeof activeTab)}
-                                className={`group flex-1 px-6 py-4 rounded-xl text-sm font-bold transition-all duration-300 relative overflow-hidden ${
-                                    activeTab === tab.key
-                                        ? `bg-white shadow-lg ${tab.shadowColor} border-2 ${tab.borderColor} scale-105 -translate-y-0.5`
-                                        : `${tab.bgColor} ${tab.bgHover} border-2 border-transparent hover:scale-102 hover:shadow-md`
-                                }`}
+                                className={`group flex-1 px-6 py-4 rounded-xl text-sm font-bold transition-all duration-300 relative overflow-hidden ${activeTab === tab.key
+                                    ? `bg-white shadow-lg ${tab.shadowColor} border-2 ${tab.borderColor} scale-105 -translate-y-0.5`
+                                    : `${tab.bgColor} ${tab.bgHover} border-2 border-transparent hover:scale-102 hover:shadow-md`
+                                    }`}
                             >
                                 {/* Gradient overlay for active tab */}
                                 {activeTab === tab.key && (
@@ -337,11 +368,10 @@ export const MappingPage: React.FC = () => {
                                         {tab.label}
                                     </span>
                                     <span
-                                        className={`inline-flex items-center justify-center min-w-[28px] h-7 px-2.5 rounded-full text-xs font-black transition-all ${
-                                            activeTab === tab.key
-                                                ? `${tab.bgColor} ${tab.textColor} ring-2 ring-white shadow-sm`
-                                                : 'bg-white/80 text-gray-600 group-hover:bg-white'
-                                        }`}
+                                        className={`inline-flex items-center justify-center min-w-[28px] h-7 px-2.5 rounded-full text-xs font-black transition-all ${activeTab === tab.key
+                                            ? `${tab.bgColor} ${tab.textColor} ring-2 ring-white shadow-sm`
+                                            : 'bg-white/80 text-gray-600 group-hover:bg-white'
+                                            }`}
                                     >
                                         {tab.count}
                                     </span>
@@ -365,10 +395,9 @@ export const MappingPage: React.FC = () => {
                 <div className="p-6 bg-gradient-to-b from-white to-gray-50/30">
                     <div className="flex items-center justify-between mb-5">
                         <h2 className="text-lg font-bold text-gray-900 flex items-center gap-3">
-                            <div className={`w-1.5 h-7 rounded-full shadow-sm ${
-                                activeTab === 'unmapped' ? 'bg-gradient-to-b from-amber-400 to-orange-600' : 
+                            <div className={`w-1.5 h-7 rounded-full shadow-sm ${activeTab === 'unmapped' ? 'bg-gradient-to-b from-amber-400 to-orange-600' :
                                 'bg-gradient-to-b from-green-400 to-emerald-600'
-                            }`} />
+                                }`} />
                             <span>Mapping Suggestions</span>
                             {activeTab === 'unmapped' && (
                                 <span className="text-xs font-semibold text-amber-700 bg-amber-100 px-3 py-1 rounded-full">
@@ -431,7 +460,7 @@ export const MappingPage: React.FC = () => {
                         onDelete={activeTab === 'unmapped' ? handleDeleteUnmapped : undefined}
                         onDeleteMapped={activeTab === 'mapped' ? handleDeleteMapped : undefined}
                         isVerifying={verifyMapping.isPending}
-                        isDeleting={deleteMapping.isPending || deleteMappedStudent.isPending}
+                        isDeleting={deleteMapping.isPending || deleteMappedStudent.isPending || deleteMachineUser.isPending}
                         showCheckbox={activeTab === 'unmapped'}
                         activeTab={activeTab}
                     />
@@ -446,7 +475,7 @@ export const MappingPage: React.FC = () => {
                 selectedItems={(unmappedSuggestionsData as MappingSuggestion[]).filter((item: MappingSuggestion) => selectedIds.has(item.id))}
                 students={unmappedStudents}
                 onSubmit={handleBulkManualMapping}
-                isProcessing={false}
+                isProcessing={bulkCreateMapping.isPending}
             />
 
             {/* Manual Mapping Modal */}
@@ -456,6 +485,7 @@ export const MappingPage: React.FC = () => {
                 machineUser={manualMappingTarget}
                 students={unmappedStudents}
                 onSubmit={handleManualMapping}
+                isProcessing={manualMapping.isPending}
             />
         </div>
     );

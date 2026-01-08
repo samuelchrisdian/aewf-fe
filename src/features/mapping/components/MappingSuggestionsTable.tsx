@@ -13,7 +13,7 @@ interface MappingSuggestionsTableProps {
     onVerify: (id: number) => void;
     onReject: (id: number) => void;
     onManualEdit: (suggestion: MappingSuggestion) => void;
-    onDelete?: (id: number) => void;
+    onDelete?: (suggestion: MappingSuggestion) => void;
     onDeleteMapped?: (nis: string) => void;
     isVerifying?: boolean;
     isDeleting?: boolean;
@@ -213,7 +213,7 @@ export const MappingSuggestionsTable: React.FC<MappingSuggestionsTableProps> = (
                             {/* Delete button */}
                             {onDelete && (
                                 <button
-                                    onClick={() => onDelete(suggestion.id)}
+                                    onClick={() => onDelete(suggestion)}
                                     disabled={isVerifying || isDeleting}
                                     className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition disabled:opacity-50"
                                     title="Delete mapping"

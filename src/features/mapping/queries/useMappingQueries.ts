@@ -6,7 +6,10 @@ import type {
     MappingSuggestion,
     VerifyMappingRequest,
     BulkVerifyRequest,
-    ProcessMappingResponse
+    ProcessMappingResponse,
+    ManualMappingRequest,
+    BulkCreateMappingRequest,
+    BulkCreateMappingResponse
 } from '@/types/api';
 
 export const MAPPING_STATS_KEY = ['mapping-stats'] as const;
@@ -69,6 +72,7 @@ export function useUnmappedUsers() {
                     id: item.machine_user?.id || index,
                     machine_user: {
                         id: item.machine_user?.id,
+                        machine_id: item.machine_user?.machine_id,  // Include machine_id for delete operations
                         machine_user_id: item.machine_user?.machine_user_id,
                         machine_user_name: item.machine_user?.machine_user_name,
                         machine_code: item.machine_user?.machine_code,
@@ -279,7 +283,67 @@ export function useDeleteMappedStudent() {
             queryClient.invalidateQueries({ queryKey: UNMAPPED_USERS_KEY });
             queryClient.invalidateQueries({ queryKey: MAPPED_USERS_KEY });
             queryClient.invalidateQueries({ queryKey: MAPPING_SUGGESTIONS_KEY });
+            queryClient.invalidateQueries({ queryKey: UNMAPPED_STUDENTS_KEY });
         },
     });
 }
 
+// Create a single manual mapping
+export function useManualMapping() {
+    const queryClient = useQueryClient();
+
+    return useMutation({
+        mutationFn: async (data: ManualMappingRequest) => {
+            return apiClient.post<{ success: boolean; message: string; mapping_id?: number }>(
+                '/api/v1/mapping/manual',
+                data
+            );
+        },
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: MAPPING_STATS_KEY });
+            queryClient.invalidateQueries({ queryKey: UNMAPPED_USERS_KEY });
+            queryClient.invalidateQueries({ queryKey: MAPPED_USERS_KEY });
+            queryClient.invalidateQueries({ queryKey: MAPPING_SUGGESTIONS_KEY });
+            queryClient.invalidateQueries({ queryKey: UNMAPPED_STUDENTS_KEY });
+        },
+    });
+}
+
+// Create multiple mappings at once (bulk create)
+export function useBulkCreateMapping() {
+    const queryClient = useQueryClient();
+
+    return useMutation({
+        mutationFn: async (data: BulkCreateMappingRequest) => {
+            return apiClient.post<BulkCreateMappingResponse>(
+                '/api/v1/mapping/bulk-create',
+                data
+            );
+        },
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: MAPPING_STATS_KEY });
+            queryClient.invalidateQueries({ queryKey: UNMAPPED_USERS_KEY });
+            queryClient.invalidateQueries({ queryKey: MAPPED_USERS_KEY });
+            queryClient.invalidateQueries({ queryKey: MAPPING_SUGGESTIONS_KEY });
+            queryClient.invalidateQueries({ queryKey: UNMAPPED_STUDENTS_KEY });
+        },
+    });
+}
+
+// Delete a machine user (for unmapped users in the mapping page)
+export function useDeleteMachineUser() {
+    const queryClient = useQueryClient();
+
+    return useMutation({
+        mutationFn: async ({ machineId, userId }: { machineId: number; userId: number }) => {
+            return apiClient.delete(`/api/v1/machines/${machineId}/users/${userId}`);
+        },
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: MAPPING_STATS_KEY });
+            queryClient.invalidateQueries({ queryKey: UNMAPPED_USERS_KEY });
+            queryClient.invalidateQueries({ queryKey: MAPPED_USERS_KEY });
+            queryClient.invalidateQueries({ queryKey: MAPPING_SUGGESTIONS_KEY });
+            queryClient.invalidateQueries({ queryKey: UNMAPPED_STUDENTS_KEY });
+        },
+    });
+}
