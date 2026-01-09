@@ -36,11 +36,7 @@ export const AnalyticsPage = (): React.ReactElement => {
   const { data: classComparisonData, isLoading: comparisonLoading } = useClassComparisonQuery(comparisonMonth);
 
   // Ensure data is always arrays
-  const trends = Array.isArray(trendsData)
-    ? trendsData
-    : (trendsData?.data && Array.isArray(trendsData.data))
-    ? trendsData.data
-    : [];
+  const trends = Array.isArray(trendsData) ? trendsData : [];
 
   const classComparison = Array.isArray(classComparisonData)
     ? classComparisonData
@@ -50,7 +46,7 @@ export const AnalyticsPage = (): React.ReactElement => {
 
   // Attendance Trends Chart Data
   const trendChartData = {
-    labels: trends.map(t => t?.date || ''),
+    labels: trends.map(t => t?.period_label || t?.period || ''),
     datasets: [
       {
         label: 'Attendance Rate (%)',
@@ -160,8 +156,8 @@ export const AnalyticsPage = (): React.ReactElement => {
     const rows = classComparison.map(cls => [
       cls.class_name,
       cls.attendance_rate.toFixed(2),
-      cls.total_students,
-      cls.risk_students
+      cls.student_count || cls.total_students || 0,
+      cls.at_risk_count || cls.risk_students || 0
     ]);
 
     const csvContent = [
@@ -316,12 +312,12 @@ export const AnalyticsPage = (): React.ReactElement => {
                   <div className="flex-1">
                     <p className="font-semibold text-gray-900">{cls.class_name}</p>
                     <p className="text-sm text-gray-500">
-                      {cls.total_students} students • {cls.risk_students} at risk
+                      {cls.student_count || cls.total_students || 0} students • {cls.at_risk_count || cls.risk_students || 0} at risk
                     </p>
                   </div>
                   <div className="text-right">
                     <p className="text-lg font-bold text-gray-900">
-                      {cls.attendance_rate.toFixed(1)}%
+                      {cls.attendance_rate?.toFixed(1) || 0}%
                     </p>
                     <div className="w-24 bg-gray-200 rounded-full h-2 mt-1">
                       <div
@@ -332,7 +328,7 @@ export const AnalyticsPage = (): React.ReactElement => {
                             ? 'bg-yellow-500'
                             : 'bg-red-500'
                         }`}
-                        style={{ width: `${cls.attendance_rate}%` }}
+                        style={{ width: `${cls.attendance_rate || 0}%` }}
                       ></div>
                     </div>
                   </div>

@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useCallback } from 'react';
-import { useDailyAttendanceQuery, useImportAttendance, useManualAttendance, useUpdateAttendance } from './queries';
+import { useDailyAttendanceQuery, useImportAttendance, useManualAttendance, useUpdateAttendance, usePreviewAttendance } from './queries';
 import { useClassesQuery } from '../classes/queries';
 import { useMachinesQuery } from '../machines/queries';
 import { Calendar, Download, Filter, CheckCircle, XCircle, Clock, FileText, Upload, X, AlertCircle, CheckCircle2, AlertTriangle, Plus, Edit2, Search, ChevronLeft, ChevronRight } from 'lucide-react';
@@ -234,6 +234,10 @@ export const AttendancePage = (): React.ReactElement => {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [selectedMachine, setSelectedMachine] = useState<string>('');
 
+  // Preview modal state
+  const [isPreviewModalOpen, setIsPreviewModalOpen] = useState(false);
+  const [previewData, setPreviewData] = useState<any>(null);
+
   // Import result modal state
   const [isResultModalOpen, setIsResultModalOpen] = useState(false);
   const [importResult, setImportResult] = useState<any>(null);
@@ -252,6 +256,7 @@ export const AttendancePage = (): React.ReactElement => {
   const manualAttendance = useManualAttendance();
   const updateAttendance = useUpdateAttendance();
   const importAttendance = useImportAttendance();
+  const previewAttendance = usePreviewAttendance();
 
   // Apply filters when button clicked
   const handleApplyFilters = () => {
@@ -422,7 +427,7 @@ export const AttendancePage = (): React.ReactElement => {
     }
   };
 
-  const handleImport = async () => {
+  const handlePreview = async () => {
     if (!selectedFile) {
       notify.warning('Please select a file to import');
       return;
@@ -434,17 +439,40 @@ export const AttendancePage = (): React.ReactElement => {
     }
 
     try {
+      const response = await previewAttendance.mutateAsync({
+        file: selectedFile,
+        machine_code: selectedMachine,
+      });
+
+      setPreviewData(response);
+      setIsImportModalOpen(false);
+      setIsPreviewModalOpen(true);
+
+      notify.success('Preview loaded successfully!');
+    } catch (error: any) {
+      notify.error(error?.response?.data?.message || 'Failed to preview attendance');
+    }
+  };
+
+  const handleImport = async () => {
+    if (!selectedFile || !selectedMachine) {
+      notify.warning('Missing file or machine selection');
+      return;
+    }
+
+    try {
       const response = await importAttendance.mutateAsync({
         file: selectedFile,
         machine_code: selectedMachine,
       });
 
       setImportResult(response);
-      setIsImportModalOpen(false);
+      setIsPreviewModalOpen(false);
       setIsResultModalOpen(true);
 
       setSelectedFile(null);
       setSelectedMachine('');
+      setPreviewData(null);
 
       const data = response?.data || response;
       const hasErrors = data?.errors && data.errors.length > 0;
@@ -463,6 +491,7 @@ export const AttendancePage = (): React.ReactElement => {
     setIsImportModalOpen(false);
     setSelectedFile(null);
     setSelectedMachine('');
+    setPreviewData(null);
   };
 
   const getStatusColor = (status: string) => {
@@ -852,13 +881,197 @@ export const AttendancePage = (): React.ReactElement => {
               <button
                 onClick={closeImportModal}
                 className="flex-1 px-4 py-2.5 border-2 border-gray-300 text-gray-700 rounded-lg hover:bg-gray-100 transition font-medium"
-                disabled={importAttendance.isPending}
+                disabled={previewAttendance.isPending}
               >
                 Cancel
               </button>
               <button
+                onClick={handlePreview}
+                disabled={!selectedFile || !selectedMachine || previewAttendance.isPending}
+                className="flex-1 px-4 py-2.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition font-medium disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+              >
+                {previewAttendance.isPending ? (
+                  <>
+                    <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                    Loading Preview...
+                  </>
+                ) : (
+                  <>
+                    <FileText className="w-4 h-4" />
+                    Preview
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Preview Modal */}
+      {isPreviewModalOpen && previewData && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl shadow-2xl max-w-6xl w-full max-h-[90vh] flex flex-col">
+            <div className="flex items-center justify-between p-6 border-b border-gray-200">
+              <div>
+                <h3 className="text-xl font-bold text-gray-900 flex items-center gap-2">
+                  <FileText className="w-5 h-5 text-blue-600" />
+                  Preview Import Data
+                </h3>
+                {previewData?.data?.period && (
+                  <p className="text-sm text-gray-600 mt-1">
+                    Period: {previewData.data.period.month}/{previewData.data.period.year}
+                  </p>
+                )}
+              </div>
+              <button
+                onClick={() => {
+                  setIsPreviewModalOpen(false);
+                  setIsImportModalOpen(true);
+                }}
+                className="text-gray-400 hover:text-gray-600 transition"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="p-6 overflow-y-auto flex-1">
+              {/* Summary Stats */}
+              <div className="grid grid-cols-4 gap-4 mb-6">
+                <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                  <p className="text-sm text-blue-600 font-medium">Total Logs</p>
+                  <p className="text-2xl font-bold text-blue-900">{previewData?.data?.summary?.total_logs || 0}</p>
+                </div>
+                <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+                  <p className="text-sm text-green-600 font-medium">Total Users</p>
+                  <p className="text-2xl font-bold text-green-900">{previewData?.data?.summary?.total_users || 0}</p>
+                </div>
+                <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+                  <p className="text-sm text-yellow-600 font-medium">Unmapped Users</p>
+                  <p className="text-2xl font-bold text-yellow-900">{previewData?.data?.summary?.unmapped_users || 0}</p>
+                </div>
+                <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+                  <p className="text-sm text-red-600 font-medium">Users Not Found</p>
+                  <p className="text-2xl font-bold text-red-900">{previewData?.data?.summary?.users_not_found || 0}</p>
+                </div>
+              </div>
+
+              {/* Errors */}
+              {previewData?.data?.errors && previewData.data.errors.length > 0 && (
+                <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-6">
+                  <div className="flex items-start gap-2">
+                    <AlertCircle className="w-5 h-5 text-red-600 mt-0.5" />
+                    <div>
+                      <p className="font-semibold text-red-900 mb-2">Errors:</p>
+                      <ul className="list-disc list-inside space-y-1 text-sm text-red-800">
+                        {previewData.data.errors.map((error: string, idx: number) => (
+                          <li key={idx}>{error}</li>
+                        ))}
+                      </ul>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Users Table */}
+              <div className="bg-white border border-gray-200 rounded-lg overflow-hidden">
+                <div className="bg-gray-50 px-4 py-3 border-b border-gray-200">
+                  <h4 className="font-semibold text-gray-900">Users Preview</h4>
+                </div>
+                <div className="overflow-x-auto max-h-96">
+                  <table className="w-full text-sm">
+                    <thead className="bg-gray-50 border-b border-gray-200 sticky top-0">
+                      <tr>
+                        <th className="px-4 py-3 text-left font-semibold text-gray-700">User ID</th>
+                        <th className="px-4 py-3 text-left font-semibold text-gray-700">Name</th>
+                        <th className="px-4 py-3 text-left font-semibold text-gray-700">Log Count</th>
+                        <th className="px-4 py-3 text-left font-semibold text-gray-700">Mapped To (NIS)</th>
+                        <th className="px-4 py-3 text-left font-semibold text-gray-700">Found in Machine</th>
+                        <th className="px-4 py-3 text-left font-semibold text-gray-700">Status</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-gray-200">
+                      {previewData?.data?.users && previewData.data.users.length > 0 ? (
+                        previewData.data.users.map((user: any, idx: number) => (
+                          <tr
+                            key={idx}
+                            className={!user.mapped_to ? 'bg-yellow-50' : user.found_in_machine ? '' : 'bg-red-50'}
+                          >
+                            <td className="px-4 py-3 text-gray-900 font-medium">{user.user_id}</td>
+                            <td className="px-4 py-3 text-gray-900">{user.name}</td>
+                            <td className="px-4 py-3 text-gray-900 text-center">{user.log_count}</td>
+                            <td className="px-4 py-3 text-gray-900">
+                              {user.mapped_to ? (
+                                <span className="px-2 py-1 bg-green-100 text-green-700 rounded text-xs font-medium">
+                                  {user.mapped_to}
+                                </span>
+                              ) : (
+                                <span className="text-gray-400 text-xs">Not mapped</span>
+                              )}
+                            </td>
+                            <td className="px-4 py-3 text-center">
+                              {user.found_in_machine ? (
+                                <CheckCircle2 className="w-5 h-5 text-green-600 mx-auto" />
+                              ) : (
+                                <XCircle className="w-5 h-5 text-red-600 mx-auto" />
+                              )}
+                            </td>
+                            <td className="px-4 py-3">
+                              {!user.mapped_to ? (
+                                <span className="px-2 py-1 bg-yellow-100 text-yellow-700 rounded-full text-xs font-medium flex items-center gap-1 w-fit">
+                                  <AlertTriangle className="w-3 h-3" />
+                                  Unmapped
+                                </span>
+                              ) : !user.found_in_machine ? (
+                                <span className="px-2 py-1 bg-red-100 text-red-700 rounded-full text-xs font-medium flex items-center gap-1 w-fit">
+                                  <XCircle className="w-3 h-3" />
+                                  Not Found
+                                </span>
+                              ) : (
+                                <span className="px-2 py-1 bg-green-100 text-green-700 rounded-full text-xs font-medium flex items-center gap-1 w-fit">
+                                  <CheckCircle2 className="w-3 h-3" />
+                                  Ready
+                                </span>
+                              )}
+                            </td>
+                          </tr>
+                        ))
+                      ) : (
+                        <tr>
+                          <td colSpan={6} className="px-4 py-8 text-center text-gray-500">
+                            No preview data available
+                          </td>
+                        </tr>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+
+              {/* Info Note */}
+              {previewData?.data?.summary?.unmapped_users > 0 && (
+                <div className="mt-4 bg-blue-50 border border-blue-200 rounded-lg p-4">
+                  <p className="text-sm text-blue-800">
+                    <span className="font-semibold">Note:</span> {previewData.data.summary.unmapped_users} user(s) are not mapped to students.
+                    These records will be skipped during import. Please map them in the Mapping menu before importing.
+                  </p>
+                </div>
+              )}
+            </div>
+
+            <div className="flex gap-3 p-6 bg-gray-50 rounded-b-xl border-t border-gray-200">
+              <button
+                onClick={() => {
+                  setIsPreviewModalOpen(false);
+                  setIsImportModalOpen(true);
+                }}
+                className="flex-1 px-4 py-2.5 border-2 border-gray-300 text-gray-700 rounded-lg hover:bg-gray-100 transition font-medium"
+                disabled={importAttendance.isPending}
+              >
+                Back to Edit
+              </button>
+              <button
                 onClick={handleImport}
-                disabled={!selectedFile || !selectedMachine || importAttendance.isPending}
+                disabled={importAttendance.isPending || (previewData?.data?.summary?.total_logs || 0) === 0}
                 className="flex-1 px-4 py-2.5 bg-green-600 text-white rounded-lg hover:bg-green-700 transition font-medium disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
               >
                 {importAttendance.isPending ? (
@@ -869,7 +1082,7 @@ export const AttendancePage = (): React.ReactElement => {
                 ) : (
                   <>
                     <Upload className="w-4 h-4" />
-                    Import
+                    Import Data ({previewData?.data?.summary?.total_logs || 0} logs)
                   </>
                 )}
               </button>

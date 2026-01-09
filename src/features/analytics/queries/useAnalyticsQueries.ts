@@ -34,7 +34,13 @@ export function useAttendanceTrendsQuery(period?: 'weekly' | 'monthly') {
           end_date: endDate
         }
       });
-      // Extract array from response
+      // Extract trends array from nested response structure
+      if (response?.data?.trends && Array.isArray(response.data.trends)) {
+        return response.data.trends;
+      }
+      if (response?.trends && Array.isArray(response.trends)) {
+        return response.trends;
+      }
       if (Array.isArray(response)) return response;
       if (response.data && Array.isArray(response.data)) return response.data;
       return [];
@@ -53,7 +59,13 @@ export function useClassComparisonQuery(period?: string) {
       const response = await apiClient.get<any>('/api/v1/analytics/class-comparison', {
         params: { period }
       });
-      // Extract array from response
+      // Extract classes array from nested response structure
+      if (response?.data?.classes && Array.isArray(response.data.classes)) {
+        return response.data.classes;
+      }
+      if (response?.classes && Array.isArray(response.classes)) {
+        return response.classes;
+      }
       if (Array.isArray(response)) return response;
       if (response.data && Array.isArray(response.data)) return response.data;
       return [];
