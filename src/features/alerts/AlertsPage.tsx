@@ -21,8 +21,13 @@ const AlertsPage = (): React.ReactElement => {
         per_page: 9999,
     });
 
-    // Fetch pending alerts to filter prioritized list
+    // Fetch pending alerts to determine which students can be acknowledged
     const { data: pendingAlerts = [] } = useAlertsQuery({ status: 'pending', per_page: 9999 });
+
+    // Create a set of student NIS with pending alerts for quick lookup
+    const pendingAlertNisSet = useMemo(() => {
+        return new Set(pendingAlerts.map((a: any) => String(a.student_nis)));
+    }, [pendingAlerts]);
 
     const alertAction = useAlertAction();
     const updateStudent = useUpdateStudent();
@@ -180,18 +185,21 @@ const AlertsPage = (): React.ReactElement => {
                         <Link to={`/alerts/${student.nis}`} className="text-primary hover:text-primary/80 flex items-center text-sm font-medium">
                             <Eye className="w-4 h-4 mr-1" /> View
                         </Link>
-                        <button
-                            onClick={() => handleAckClick(student)}
-                            className="text-gray-400 hover:text-green-600 flex items-center text-sm font-medium transition-colors"
-                        >
-                            <CheckCircle className="w-4 h-4 mr-1" /> Ack
-                        </button>
+                        {/* Only show Acknowledge button for students with pending alerts */}
+                        {pendingAlertNisSet.has(String(student.nis)) && (
+                            <button
+                                onClick={() => handleAckClick(student)}
+                                className="text-gray-400 hover:text-green-600 flex items-center text-sm font-medium transition-colors"
+                            >
+                                <CheckCircle className="w-4 h-4 mr-1" /> Ack
+                            </button>
+                        )}
                     </div>
                 );
             },
             enableSorting: false,
         },
-    ], [getRiskColor, handleAckClick]);
+    ], [getRiskColor, handleAckClick, pendingAlertNisSet]);
 
     if (loading) return <div className="p-10 text-center">Loading...</div>;
 
@@ -228,7 +236,7 @@ const AlertsPage = (): React.ReactElement => {
             <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
                 <DataTable
                     columns={columns}
-                    data={students.filter((s) => pendingAlerts.some((a: any) => String(a.student_nis) === String(s.nis)))}
+                    data={students}
                     initialState={{ pagination: { pageSize: 10 }, sorting: [{ id: 'probability', desc: true }] }}
                     noDataMessage="No students found matching the filter."
                 />

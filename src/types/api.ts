@@ -182,6 +182,7 @@ export interface RiskListParams {
   class_id?: number;
   page?: number;
   per_page?: number;
+  alert_status?: 'pending' | 'acknowledged' | 'resolved' | 'none';
 }
 
 export interface Alert {
