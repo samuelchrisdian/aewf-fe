@@ -46,7 +46,8 @@ export function useUnmappedUsers() {
     return useQuery({
         queryKey: UNMAPPED_USERS_KEY,
         queryFn: async () => {
-            const response = await apiClient.get<any>('/api/v1/mapping/unmapped');
+            // Fetch all unmapped users (per_page=1000 to avoid pagination)
+            const response = await apiClient.get<any>('/api/v1/mapping/unmapped?per_page=1000');
 
             // Parse the response to get the unmapped array and pagination
             let unmappedArray: any[] = [];

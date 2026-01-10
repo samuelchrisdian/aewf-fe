@@ -1,5 +1,5 @@
-import React, { useMemo } from 'react';
-import { Link2, AlertTriangle, RefreshCw, CheckCircle, XCircle, AlertCircle, User } from 'lucide-react';
+import React, { useMemo, useState } from 'react';
+import { Link2, AlertTriangle, RefreshCw, CheckCircle, XCircle, AlertCircle, User, ChevronLeft, ChevronRight } from 'lucide-react';
 import { notify } from '@/lib/notifications';
 import {
     useMappingStats,
@@ -13,7 +13,11 @@ interface ImportMappingStepProps {
     onBack: () => void;
 }
 
+const ITEMS_PER_PAGE = 10;
+
 export const ImportMappingStep: React.FC<ImportMappingStepProps> = ({ onNext, onBack }) => {
+    // Pagination state
+    const [currentPage, setCurrentPage] = useState(1);
     // Queries
     const { data: stats, isLoading: statsLoading, error: statsError } = useMappingStats();
     const { data: suggestionsData, isLoading: suggestionsLoading, error: suggestionsError } = useUnmappedUsers();
@@ -23,13 +27,13 @@ export const ImportMappingStep: React.FC<ImportMappingStepProps> = ({ onNext, on
     const verifyMapping = useVerifyMapping();
 
     // Ensure suggestions is always an array
+    // suggestionsData is { data: [...], total: number } from useUnmappedUsers
     const suggestions = useMemo(() => {
         if (!suggestionsData) return [];
         if (Array.isArray(suggestionsData)) return suggestionsData;
+        if (suggestionsData.data && Array.isArray(suggestionsData.data)) return suggestionsData.data;
         return [];
     }, [suggestionsData]);
-
-
 
     // Handlers
     const handleRunAutoMapping = async () => {
@@ -103,15 +107,15 @@ export const ImportMappingStep: React.FC<ImportMappingStepProps> = ({ onNext, on
             {stats && (
                 <div className="grid grid-cols-3 gap-4">
                     <div className="bg-green-50 border border-green-200 rounded-lg p-4 text-center">
-                        <p className="text-2xl font-bold text-green-700">{stats.mapped || 0}</p>
+                        <p className="text-2xl font-bold text-green-700">{stats.verified_count || 0}</p>
                         <p className="text-sm text-green-600">Terverifikasi</p>
                     </div>
                     <div className="bg-amber-50 border border-amber-200 rounded-lg p-4 text-center">
-                        <p className="text-2xl font-bold text-amber-700">{stats.pending || 0}</p>
+                        <p className="text-2xl font-bold text-amber-700">{stats.suggested_count || 0}</p>
                         <p className="text-sm text-amber-600">Pending</p>
                     </div>
                     <div className="bg-red-50 border border-red-200 rounded-lg p-4 text-center">
-                        <p className="text-2xl font-bold text-red-700">{stats.unmapped || 0}</p>
+                        <p className="text-2xl font-bold text-red-700">{stats.unmapped_count || 0}</p>
                         <p className="text-sm text-red-600">Belum Mapping</p>
                     </div>
                 </div>
@@ -170,7 +174,7 @@ export const ImportMappingStep: React.FC<ImportMappingStepProps> = ({ onNext, on
                                 </tr>
                             </thead>
                             <tbody className="divide-y">
-                                {suggestions.slice(0, 15).map((item) => (
+                                {suggestions.slice((currentPage - 1) * ITEMS_PER_PAGE, currentPage * ITEMS_PER_PAGE).map((item) => (
                                     <tr key={item.id} className="hover:bg-gray-50">
                                         <td className="px-4 py-2 text-gray-900">
                                             {item.machine_user?.machine_user_id || '-'}
@@ -192,11 +196,11 @@ export const ImportMappingStep: React.FC<ImportMappingStepProps> = ({ onNext, on
                                         </td>
                                         <td className="px-4 py-2">
                                             {item.confidence_score ? (
-                                                <span className={`px-2 py-0.5 rounded text-xs font-medium ${item.confidence_score >= 0.8 ? 'bg-green-100 text-green-700' :
-                                                    item.confidence_score >= 0.6 ? 'bg-amber-100 text-amber-700' :
+                                                <span className={`px-2 py-0.5 rounded text-xs font-medium ${item.confidence_score >= 80 ? 'bg-green-100 text-green-700' :
+                                                    item.confidence_score >= 60 ? 'bg-amber-100 text-amber-700' :
                                                         'bg-red-100 text-red-700'
                                                     }`}>
-                                                    {(item.confidence_score * 100).toFixed(0)}%
+                                                    {item.confidence_score.toFixed(0)}%
                                                 </span>
                                             ) : (
                                                 <span className="text-gray-400">-</span>
@@ -228,10 +232,32 @@ export const ImportMappingStep: React.FC<ImportMappingStepProps> = ({ onNext, on
                                 ))}
                             </tbody>
                         </table>
-                        {suggestions.length > 15 && (
-                            <p className="text-sm text-gray-500 text-center py-2">
-                                ...dan {suggestions.length - 15} user lainnya
-                            </p>
+                        {/* Pagination */}
+                        {suggestions.length > ITEMS_PER_PAGE && (
+                            <div className="flex items-center justify-between pt-4 border-t mt-4">
+                                <p className="text-sm text-gray-600">
+                                    Menampilkan {(currentPage - 1) * ITEMS_PER_PAGE + 1} - {Math.min(currentPage * ITEMS_PER_PAGE, suggestions.length)} dari {suggestions.length} user
+                                </p>
+                                <div className="flex items-center gap-2">
+                                    <button
+                                        onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                                        disabled={currentPage === 1}
+                                        className="p-2 border rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition"
+                                    >
+                                        <ChevronLeft className="w-4 h-4" />
+                                    </button>
+                                    <span className="text-sm text-gray-700 px-2">
+                                        Halaman {currentPage} dari {Math.ceil(suggestions.length / ITEMS_PER_PAGE)}
+                                    </span>
+                                    <button
+                                        onClick={() => setCurrentPage(p => Math.min(Math.ceil(suggestions.length / ITEMS_PER_PAGE), p + 1))}
+                                        disabled={currentPage >= Math.ceil(suggestions.length / ITEMS_PER_PAGE)}
+                                        className="p-2 border rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition"
+                                    >
+                                        <ChevronRight className="w-4 h-4" />
+                                    </button>
+                                </div>
+                            </div>
                         )}
                     </div>
                 )}
