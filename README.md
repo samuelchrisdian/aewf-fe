@@ -136,6 +136,7 @@
 - [x] Alert actions (Acknowledge, Resolve, Dismiss)
 - [x] Student detail view with risk history
 - [x] ML-based risk explanation text
+- [x] **Data Quality Warning badge** (for students with low recording completeness)
 - [x] Feature Importance chart (factor weights visualization)
 
 #### 👨‍🎓 Student Management
@@ -149,12 +150,14 @@
 
 #### 📅 Attendance Management
 - [x] View daily attendance records
-- [x] Filter by date/month
+- [x] Filter by date/month with **Apply button**
 - [x] Filter by class
 - [x] Filter by status (Present, Absent, Late, Excused)
-- [x] Manual attendance entry
-- [x] Update attendance records
+- [x] Manual attendance entry with modal
+- [x] Update attendance records with modal
 - [x] Attendance summary statistics
+- [x] **Date range filtering** with start/end date
+- [x] **Server-side pagination** for large datasets
 
 #### 📈 Analytics
 - [x] Attendance trends (Weekly/Monthly)
@@ -183,6 +186,8 @@
 - [x] Import attendance logs
 - [x] Import batch history and status tracking
 - [x] File upload with validation
+- [x] **Import preview endpoints** (preview data before committing)
+- [x] Delete unmapped machine users
 
 #### 🔗 Fuzzy Mapping System (Admin Only)
 - [x] Mapping dashboard with statistics
@@ -204,12 +209,15 @@
 - [x] Export attendance to Excel
 - [x] Download master data template
 
-#### 🤖 ML Model Management
+#### 🤖 ML Model Management (v2)
 - [x] View model status (Available/Not Trained)
 - [x] View last trained timestamp
 - [x] View model performance metrics (Recall, F1, AUC-ROC)
 - [x] Trigger model retraining
 - [x] Feature importance visualization
+- [x] **Model version display** (v1, v2)
+- [x] **Data quality indicators** (recording_completeness, longest_gap_days)
+- [x] **Dynamic factor rendering** (supports new feature columns)
 
 #### 🔔 Notifications System
 - [x] Notification bell with unread badge in header
@@ -538,9 +546,11 @@ export const apiClient = new ApiClient();
 #### Risk Management
 | Method | Endpoint | Description |
 |--------|----------|-------------|
-| GET | `/api/v1/risk/alerts` | Get risk alerts |
+| GET | `/api/v1/risk/alerts` | Get risk alerts. Query: `?status=open\|in_progress\|resolved\|dismissed&level=low\|medium\|high\|critical` |
+| GET | `/api/v1/risk/alerts/actioned` | Get actioned alerts history |
+| GET | `/api/v1/risk/list` | Get all students with risk data. Query: `?level=high\|medium\|low&alert_status=none` |
 | GET | `/api/v1/risk/students` | Get at-risk students |
-| GET | `/api/v1/risk/students/:nis` | Get student risk detail |
+| GET | `/api/v1/risk/students/:nis` | Get student risk detail with ML v2 data quality info |
 | GET | `/api/v1/risk/students/:nis/history` | Get risk history |
 | POST | `/api/v1/risk/alerts/:id/action` | Perform alert action |
 
@@ -567,13 +577,17 @@ export const apiClient = new ApiClient();
 | PUT | `/api/v1/machines/:id` | Update machine |
 | DELETE | `/api/v1/machines/:id` | Delete machine |
 | GET | `/api/v1/machines/:id/users` | Get machine users |
+| DELETE | `/api/v1/machines/users/:id` | Delete machine user |
 
 #### Import System
 | Method | Endpoint | Description |
 |--------|----------|-------------|
 | POST | `/api/v1/import/master` | Import master data (Students, Classes, Teachers) |
+| POST | `/api/v1/import/master/preview` | Preview master data import without committing |
 | POST | `/api/v1/import/users-sync` | Sync machine users from fingerprint export |
+| POST | `/api/v1/import/users-sync/preview` | Preview users sync without committing |
 | POST | `/api/v1/import/attendance` | Import attendance logs |
+| POST | `/api/v1/import/attendance/preview` | Preview attendance import without committing |
 | GET | `/api/v1/import/batches` | List import batch history |
 | GET | `/api/v1/import/batches/:id` | Get batch details |
 | POST | `/api/v1/import/batches/:id/rollback` | Rollback batch |
@@ -598,12 +612,17 @@ export const apiClient = new ApiClient();
 | GET | `/api/v1/export/attendance` | Export attendance to Excel. Query: `?start_date&end_date&class_id` |
 | GET | `/api/v1/export/template/master` | Download master data import template |
 
-#### ML Model Management
+#### ML Model Management (v2)
 | Method | Endpoint | Description |
 |--------|----------|-------------|
-| GET | `/api/v1/models/info` | Get model status, type, threshold, trained_at |
-| GET | `/api/v1/models/performance` | Get model metrics (recall, f1, auc_roc) |
+| GET | `/api/v1/models/info` | Get model status, type, threshold, trained_at, **model_version** |
+| GET | `/api/v1/models/performance` | Get model metrics (recall, f1, auc_roc, optimal_threshold) |
 | POST | `/api/v1/models/retrain` | Trigger model retraining |
+
+> **Note:** ML Model v2 includes additional features:
+> - `recording_completeness`: Data quality indicator (0-1)
+> - `longest_gap_days`: Maximum gap between attendance records
+> - `data_quality.is_low_quality`: Flag for students with < 70% recording completeness
 
 #### Notifications
 | Method | Endpoint | Description |
